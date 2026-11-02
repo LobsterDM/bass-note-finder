@@ -253,7 +253,18 @@
     </div>
 
     <div class="field">
-      <label class="t">Highest fret: <span class="rangeval" id="fretVal"></span></label>
+      <label class="t">Frets on your bass</label>
+      <div class="seg" data-key="bassFrets">
+        <button data-v="20">20</button>
+        <button data-v="21">21</button>
+        <button data-v="22">22</button>
+        <button data-v="24">24</button>
+      </div>
+      <div class="note-help">With +1 or +2 octave playback, any note that would sound higher than your bass can reach is played an octave lower instead.</div>
+    </div>
+
+    <div class="field">
+      <label class="t">Practise up to fret: <span class="rangeval" id="fretVal"></span></label>
       <input type="range" id="maxFret" min="3" max="24" step="1">
     </div>
 
@@ -305,7 +316,7 @@
 
   const defaults = { kind:'note', mode:'manual', think:8, strings:'4', maxFret:12, names:'both', shift:'12',
                      naturals:false, showOct:true, weighted:true,
-                     chordTypes:['maj','min','aug','dim'], pattern:'up', speed:'med', stave:'hint' };
+                     chordTypes:['maj','min','aug','dim'], pattern:'up', speed:'med', stave:'hint', bassFrets:'20' };
   let S = {...defaults};
   let stats = { hit:0, miss:0, streak:0, best:0, perNote:{} };
 
@@ -463,9 +474,17 @@
     if (ctx.state === 'suspended') ctx.resume();
     return ctx;
   }
-  function tone(m, t, dur, level = 0.9){
+  // Octave shift for playback, dropped an octave at a time if the sound would go
+  // above the highest note on the player's bass. `top` = highest note being played.
+  function shiftFor(top){
+    const cap = Math.max(...TUNING[S.strings]) + (+S.bassFrets);
+    let sh = +S.shift;
+    while (sh > 0 && top + sh > cap) sh -= 12;
+    return sh;
+  }
+  function tone(m, t, dur, level = 0.9, sh = shiftFor(m)){
     const a = ac();
-    const f = 440 * Math.pow(2, (m + (+S.shift) - 69)/12);
+    const f = 440 * Math.pow(2, (m + sh - 69)/12);
     const out = a.createGain();
     out.gain.setValueAtTime(0.0001, t);
     out.gain.exponentialRampToValueAtTime(level, t+0.008);
@@ -485,13 +504,14 @@
     const a = ac(), t0 = a.currentTime + 0.03;
     if (it.type === 'note'){ tone(it.m, t0, 2.6); return 2.6; }
     const n = chordNotes(it), step = SPEED[S.speed];
+    const sh = shiftFor(n[2]); // shift the whole chord together so the shape stays intact
     let seq = n;
     if (S.pattern === 'updown') seq = [n[0], n[1], n[2], n[1], n[0]];
-    seq.forEach((m,i) => tone(m, t0 + i*step, i === seq.length-1 ? 1.6 : step*1.8, 0.8));
+    seq.forEach((m,i) => tone(m, t0 + i*step, i === seq.length-1 ? 1.6 : step*1.8, 0.8, sh));
     let len = seq.length*step + 1.6;
     if (S.pattern === 'block'){
       const tb = t0 + seq.length*step + 0.25;
-      n.forEach(m => tone(m, tb, 2.2, 0.45));
+      n.forEach(m => tone(m, tb, 2.2, 0.45, sh));
       len = (tb - t0) + 2.2;
     }
     return len;
@@ -663,6 +683,8 @@
     $('kindBar').querySelectorAll('button').forEach(b => b.classList.toggle('on', S.kind === b.dataset.v));
     $('chordTypes').querySelectorAll('button').forEach(b => b.classList.toggle('on', S.chordTypes.includes(b.dataset.v)));
     $('think').value = S.think; $('thinkVal').textContent = S.think + 's';
+    $('maxFret').max = S.bassFrets;
+    if (S.maxFret > +S.bassFrets) S.maxFret = +S.bassFrets;
     $('maxFret').value = S.maxFret; $('fretVal').textContent = S.maxFret;
     ['naturals','showOct','weighted'].forEach(k => $(k).checked = !!S[k]);
     $('autoFields').style.display = S.mode === 'auto' ? '' : 'none';
@@ -683,7 +705,7 @@
     const b = e.target.closest('button'); if (!b) return;
     const k = seg.dataset.key;
     if (k === 'mode' && autoRunning) stopAuto();
-    S[k] = b.dataset.v; saveSettings(k === 'strings');
+    S[k] = b.dataset.v; saveSettings(k === 'strings' || k === 'bassFrets');
   }));
   $('kindBar').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b || S.kind === b.dataset.v) return;

@@ -8,8 +8,8 @@ A single-page ear-training app for bass guitar. It plays a random note or chord 
 - **Manual or hands-free.** In hands-free mode the app plays, waits a set time (3–20 s), reveals the answer and moves on, so you can keep both hands on the bass.
 - **Fretboard reveal.** In note mode, every position of the exact pitch is marked, with other octaves shown faintly. In chord mode the root and chord tones are marked with interval labels (R, ♭3, ♯5…).
 - **Stave notation.** The note or chord is shown in bass clef, written an octave above sounding pitch (standard bass notation), with 8va for high notes and correct chord spelling. The stave can be off, hidden behind a 💡 Hint button (tap to see the note in notation before revealing the answer), or shown straight away for reading practice.
-- **4- or 5-string**, adjustable fret range, natural notes only, sharp/flat/both naming.
-- **Playback pitch.** Play at true bass pitch, or 1 or 2 octaves up for phone speakers.
+- **4- or 5-string**, 20–24 fret basses, adjustable practice range, natural notes only, sharp/flat/both naming.
+- **Playback pitch.** Play at true bass pitch, or 1 or 2 octaves up for phone speakers. Notes that would sound above the top of your bass drop an octave so they are always playable.
 - **Scoring.** Tracks score, streak and the notes/chords you miss most. Missed items can be weighted to come up more often. Score and settings are saved in `localStorage`.
 
 ## Files
