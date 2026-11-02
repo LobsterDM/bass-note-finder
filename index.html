@@ -51,6 +51,8 @@
   .btn.big{font-size:20px;padding:22px 10px}
   .stave-card{margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:8px 0 10px;text-align:center}
   .stave-card svg{display:block;margin:0 auto;max-width:100%;height:auto}
+  .stave-card.tappable{cursor:pointer;border-style:dashed}
+  .row .btn.ghost{font-size:16px;padding:16px 6px;white-space:nowrap}
   .stave-card .cap{color:var(--muted);font-size:11px;margin-top:2px}
   .board-wrap{margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:12px 0 8px;overflow-x:auto;-webkit-overflow-scrolling:touch}
   .board-wrap svg{display:block}
@@ -124,6 +126,7 @@
     </div>
     <div class="row">
       <button class="btn ghost" id="btnReplay" disabled>↻ Replay</button>
+      <button class="btn ghost" id="btnHint" disabled>💡 Hint</button>
       <button class="btn ghost" id="btnReveal" disabled>👁 Reveal</button>
     </div>
     <div class="row" id="rowJudge" style="display:none">
@@ -195,10 +198,10 @@
       <label class="t">Show on the stave</label>
       <div class="seg" data-key="stave">
         <button data-v="off">Off</button>
-        <button data-v="reveal">On reveal</button>
+        <button data-v="hint">As a hint</button>
         <button data-v="always">Straight away</button>
       </div>
-      <div class="note-help">“Straight away” shows the notation as the sound plays, so you can practise reading it and playing what you see. Chord notes are spelled properly, so you may see things like E♯ or B♭♭.</div>
+      <div class="note-help">“As a hint” keeps the stave hidden until you tap 💡 Hint (or the stave itself). Reveal always shows it too. “Straight away” shows the notation as the sound plays, for reading practice. Chord notes are spelled properly, so you may see things like E♯ or B♭♭.</div>
     </div>
 
     <h4>Bass &amp; sound</h4>
@@ -263,7 +266,7 @@
 
   const defaults = { kind:'note', mode:'manual', think:8, strings:'4', maxFret:12, names:'both', shift:'12',
                      naturals:false, showOct:true, weighted:true,
-                     chordTypes:['maj','min','aug','dim'], pattern:'up', speed:'med', stave:'reveal' };
+                     chordTypes:['maj','min','aug','dim'], pattern:'up', speed:'med', stave:'hint' };
   let S = {...defaults};
   let stats = { hit:0, miss:0, streak:0, best:0, perNote:{} };
 
@@ -273,10 +276,11 @@
   };
   Object.assign(S, store.get('bnf-settings') || {});
   Object.assign(stats, store.get('bnf-stats') || {});
+  if (S.stave === 'reveal') S.stave = 'hint'; // older saved setting
   if (!Array.isArray(S.chordTypes) || !S.chordTypes.length) S.chordTypes = [...defaults.chordTypes];
 
   // current item: {type:'note', m} or {type:'chord', root, ch}
-  let current = null, lastKey = null, revealed = false;
+  let current = null, lastKey = null, revealed = false, hinted = false;
   let autoTimer = null, autoRunning = false, rafId = null;
   const $ = id => document.getElementById(id);
 
@@ -324,7 +328,8 @@
     const card = $('staveCard');
     if (S.stave === 'off'){ card.style.display = 'none'; return; }
     card.style.display = '';
-    const show = current && (revealed || S.stave === 'always');
+    const show = current && (revealed || hinted || S.stave === 'always');
+    card.classList.toggle('tappable', !!(current && !show && S.stave === 'hint'));
     const notes = show ? spelledItem(current) : [];
     let steps = notes.map(n => n.oct*7 + n.letter + 7);   // written an octave above sounding
     const ottava = steps.some(s => s > 32);
@@ -338,7 +343,8 @@
     s += `<path d="M24 ${fy} C24 ${fy-13} 47 ${fy-14} 47 ${fy+3} C47 ${fy+20} 33 ${fy+30} 17 ${fy+36}" fill="none" stroke="${ink}" stroke-width="3" stroke-linecap="round"/>`;
     s += `<circle cx="24.5" cy="${fy}" r="4.6" fill="${ink}"/><circle cx="55" cy="${y(25)}" r="2.3" fill="${ink}"/><circle cx="55" cy="${y(23)}" r="2.3" fill="${ink}"/>`;
     if (!show){
-      s += `<text x="${W/2+20}" y="${y(22)+9}" fill="#3a332d" font-size="30" font-weight="700" text-anchor="middle" font-family="JetBrains Mono">?</text>`;
+      const tip = current && S.stave === 'hint';
+      s += `<text x="${W/2+20}" y="${y(22)+(tip?6:9)}" fill="${tip ? '#a39687' : '#3a332d'}" font-size="${tip?15:30}" font-weight="700" text-anchor="middle" font-family="${tip ? 'Space Grotesk,system-ui' : 'JetBrains Mono'}">${tip ? '💡 Tap for a hint' : '?'}</text>`;
     } else {
       const xs = steps.length === 1 ? [185] : [130, 190, 250];
       steps.forEach((st, i) => {
@@ -531,10 +537,10 @@
   function newItem(){
     const it = pick();
     if (!it){ $('hint').textContent = 'Nothing fits these settings — raise the highest fret or pick more chord types.'; return 0; }
-    current = it; lastKey = keyFor(it); revealed = false;
+    current = it; lastKey = keyFor(it); revealed = false; hinted = false;
     const len = play(current);
     setDisplay(); drawBoard();
-    $('btnReplay').disabled = false; $('btnReveal').disabled = false;
+    $('btnReplay').disabled = false; $('btnReveal').disabled = false; $('btnHint').disabled = false;
     $('rowJudge').style.display = 'none';
     const what = (S.stave === 'always' ? 'Read it on the stave — ' : '') + (current.type === 'chord' ? 'find the root, then play the arpeggio' : 'find it on the fretboard');
     const whatCap = what[0].toUpperCase() + what.slice(1);
@@ -545,7 +551,7 @@
     if (!current || revealed) return;
     revealed = true;
     setDisplay(); drawBoard(); play(current);
-    $('btnReveal').disabled = true;
+    $('btnReveal').disabled = true; $('btnHint').disabled = true;
     if (S.mode === 'manual'){ $('rowJudge').style.display = 'flex'; $('hint').textContent = 'Did you get it?'; }
     else $('hint').textContent = 'Next one shortly…';
   }
@@ -621,11 +627,12 @@
     $('maxFret').value = S.maxFret; $('fretVal').textContent = S.maxFret;
     ['naturals','showOct','weighted'].forEach(k => $(k).checked = !!S[k]);
     $('autoFields').style.display = S.mode === 'auto' ? '' : 'none';
+    $('btnHint').style.display = S.stave === 'hint' ? '' : 'none';
     syncButtons();
   }
   function clearCurrent(){
-    current = null; revealed = false; setDisplay();
-    $('btnReplay').disabled = true; $('btnReveal').disabled = true; $('rowJudge').style.display = 'none';
+    current = null; revealed = false; hinted = false; setDisplay();
+    $('btnReplay').disabled = true; $('btnReveal').disabled = true; $('btnHint').disabled = true; $('rowJudge').style.display = 'none';
   }
   function saveSettings(resetItem){
     store.set('bnf-settings', S);
@@ -665,6 +672,14 @@
   $('btnNew').onclick = () => { ac(); if (S.mode === 'auto') (autoRunning ? stopAuto() : startAuto()); else newItem(); };
   $('btnReplay').onclick = () => { if (current) play(current); };
   $('btnReveal').onclick = reveal;
+  function hint(){
+    if (!current || revealed || hinted || S.stave !== 'hint') return;
+    hinted = true; $('btnHint').disabled = true;
+    drawStave();
+    $('hint').textContent = 'Hint: it’s on the stave below.';
+  }
+  $('btnHint').onclick = hint;
+  $('staveCard').onclick = hint;
   $('btnGot').onclick = () => judge(true);
   $('btnMiss').onclick = () => judge(false);
 
