@@ -12,11 +12,30 @@ A single-page ear-training app for bass guitar. It plays a random note or chord 
 - **Playback pitch.** Play at true bass pitch, or 1 or 2 octaves up for phone speakers.
 - **Scoring.** Tracks score, streak and the notes/chords you miss most. Missed items can be weighted to come up more often. Score and settings are saved in `localStorage`.
 
-## Running it
+## Files
 
-It's one self-contained `index.html` with no build step or dependencies. Fonts load from Google Fonts and fall back to system fonts offline.
+| Path | Purpose |
+| --- | --- |
+| `index.html` | The whole app (HTML, CSS, JS) |
+| `sw.js` | Service worker – caches the site so it works offline once installed |
+| `manifest.webmanifest` | Makes it installable as a phone/desktop app |
+| `icons/`, `favicon.ico` | App icons and favicons |
+| `og-image.png` | Preview image for links shared on social media / messaging |
+| `fonts/` | Self-hosted Space Grotesk and JetBrains Mono (SIL OFL, licences included) |
+| `.htaccess` | Apache settings: HTTPS redirect, MIME types, caching, compression |
+| `robots.txt` | Allows search engines to index the site |
 
-- Open `index.html` in a browser, or
-- Serve it from any static host (GitHub Pages, Netlify, shared hosting). HTTPS is needed for the screen wake lock in hands-free mode.
+## Deploying
 
-On a phone, use "Add to Home Screen" for an app-like icon.
+No build step. Upload everything (including the hidden `.htaccess`) to your web root, or a subfolder, on any static host over HTTPS.
+
+- **Shared hosting (Apache):** upload via FTP/file manager. `.htaccess` handles HTTPS and caching.
+- **Netlify / Cloudflare Pages / GitHub Pages:** point it at this repo's root. `.htaccess` is ignored there and isn't needed.
+
+**When you change anything:** bump `VERSION` in `sw.js` (e.g. `bnf-v2`) so installed copies fetch the new files. If you add files, add them to the `FILES` list too.
+
+**Social previews:** some platforms need an absolute image URL. Once the domain is known, change `og:image` in `index.html` to `https://yourdomain/og-image.png` and add a `<link rel="canonical">`.
+
+## Local testing
+
+`python3 -m http.server` in this folder, then open http://localhost:8000. Offline caching only works over http(s), not when opening the file directly.

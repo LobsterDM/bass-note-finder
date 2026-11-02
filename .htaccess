@@ -1,0 +1,35 @@
+# Bass Note Finder: Apache settings (most shared hosting, including Fasthosts Linux plans).
+# Safe to delete if your host isn't Apache; the site works without it.
+
+# Force HTTPS (needed for offline install and the screen wake lock).
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+DirectoryIndex index.html
+
+<IfModule mod_mime.c>
+  AddType application/manifest+json .webmanifest
+  AddType font/woff2 .woff2
+  AddType image/svg+xml .svg
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/manifest+json image/svg+xml
+</IfModule>
+
+<IfModule mod_headers.c>
+  # Always revalidate the page and the service worker so updates arrive promptly.
+  <FilesMatch "\.(html|js|webmanifest)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+  # Fonts and images rarely change.
+  <FilesMatch "\.(woff2|png|svg|ico)$">
+    Header set Cache-Control "public, max-age=2592000"
+  </FilesMatch>
+  Header set X-Content-Type-Options "nosniff"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>

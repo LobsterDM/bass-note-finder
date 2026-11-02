@@ -4,10 +4,29 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#14110f">
-<title>Bass Note Finder</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<title>Bass Note Finder – Ear Training &amp; Fretboard Practice for Bass Guitar</title>
+<meta name="description" content="Free ear-training app for bass guitar. Hear a random note or chord arpeggio, find it on the fretboard, and learn to read it in bass clef. Works offline on your phone.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Note Finder">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Bass Note Finder">
+<meta property="og:description" content="Hear a note. Find it on the fretboard. Train your ear and your reading.">
+<meta property="og:image" content="og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preload" href="fonts/space-grotesk-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/jetbrains-mono-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
 <style>
+  @font-face{font-family:'Space Grotesk';font-style:normal;font-weight:400;font-display:swap;src:url(fonts/space-grotesk-latin-400-normal.woff2) format('woff2')}
+  @font-face{font-family:'Space Grotesk';font-style:normal;font-weight:500;font-display:swap;src:url(fonts/space-grotesk-latin-500-normal.woff2) format('woff2')}
+  @font-face{font-family:'Space Grotesk';font-style:normal;font-weight:700;font-display:swap;src:url(fonts/space-grotesk-latin-700-normal.woff2) format('woff2')}
+  @font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:500;font-display:swap;src:url(fonts/jetbrains-mono-latin-500-normal.woff2) format('woff2')}
+  @font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:700;font-display:swap;src:url(fonts/jetbrains-mono-latin-700-normal.woff2) format('woff2')}
   :root{
     --bg:#14110f; --panel:#1e1a17; --panel2:#27221e; --line:#3a332d;
     --text:#f3ece4; --muted:#a39687; --accent:#f2a33a; --accent2:#e8613c; --tone:#5fb3a8;
@@ -64,6 +83,13 @@
   .chip{font-family:'JetBrains Mono',monospace;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px 9px;font-size:13px}
   .chip em{font-style:normal;color:var(--bad);margin-left:6px}
   .empty{color:var(--muted);font-size:14px}
+  .about summary{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:500;cursor:pointer;list-style:none}
+  .about summary::-webkit-details-marker{display:none}
+  .about summary::after{content:" +";color:var(--accent)}
+  .about[open] summary::after{content:" –"}
+  .about p,.about li{font-size:15px;line-height:1.5;color:#d8cfc5}
+  .about ol{padding-left:20px;margin:8px 0}
+  .about li{margin-bottom:6px}
   /* settings sheet */
   .sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .2s;z-index:10}
   .sheet-bg.open{opacity:1;pointer-events:auto}
@@ -144,6 +170,19 @@
     <h2>Trickiest so far</h2>
     <div class="weak" id="weakList"></div>
   </div>
+
+  <details class="card about">
+    <summary>How it works</summary>
+    <p>Bass Note Finder trains you to connect what you hear, what you read and where it sits on the neck.</p>
+    <ol>
+      <li><b>Listen.</b> Tap “New note” and a random note (or a chord arpeggio in Chords mode) plays.</li>
+      <li><b>Find it.</b> Hunt it down on your bass until your note matches.</li>
+      <li><b>Stuck?</b> Tap 💡 Hint to see it written on the bass clef stave.</li>
+      <li><b>Check.</b> Tap Reveal to see the name and every place it lives on the fretboard, then mark whether you got it.</li>
+    </ol>
+    <p>Hands-free mode does all of this on a timer so you can keep both hands on the instrument. Notes you miss come back more often.</p>
+    <p><b>Install it:</b> on iPhone tap Share → Add to Home Screen; on Android open the browser menu → Install app. Once installed it works offline. Your score and settings stay on your device.</p>
+  </details>
 </div>
 
 <div class="sheet-bg" id="sheetBg"></div>
@@ -684,6 +723,11 @@
   $('btnMiss').onclick = () => judge(false);
 
   syncSettingsUI(); renderStats(); drawBoard();
+
+  // Offline support (only works when served over http/https)
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+    window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+  }
 })();
 </script>
 </body>
