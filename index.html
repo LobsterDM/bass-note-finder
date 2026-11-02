@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14110f">
+<title>Bass Note Finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#14110f; --panel:#1e1a17; --panel2:#27221e; --line:#3a332d;
+    --text:#f3ece4; --muted:#a39687; --accent:#f2a33a; --accent2:#e8613c; --tone:#5fb3a8;
+    --good:#7cc47f; --bad:#e8613c;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--text);font-family:'Space Grotesk',system-ui,sans-serif}
+  body{padding:calc(env(safe-area-inset-top) + 12px) 14px calc(env(safe-area-inset-bottom) + 20px)}
+  .wrap{max-width:560px;margin:0 auto}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  h1{font-size:20px;margin:0;letter-spacing:-.01em}
+  h1 span{color:var(--accent)}
+  .iconbtn{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:8px 12px;font:inherit;font-size:14px}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 8px;text-align:center}
+  .stat b{display:block;font-family:'JetBrains Mono',monospace;font-size:20px}
+  .stat small{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+  .modebar{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:4px;gap:4px;margin-bottom:14px}
+  .modebar button{flex:1;background:none;border:none;color:var(--muted);font:inherit;font-size:15px;font-weight:500;padding:10px 4px;border-radius:10px}
+  .modebar button.on{background:var(--panel2);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)}
+  .stage{background:radial-gradient(120% 90% at 50% 0%,#2c241e 0%,var(--panel) 70%);border:1px solid var(--line);border-radius:22px;padding:22px 16px 18px;text-align:center;position:relative;overflow:hidden}
+  .note{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:88px;line-height:1;min-height:92px;letter-spacing:-.04em;transition:transform .25s;display:flex;align-items:center;justify-content:center}
+  .note.mid{font-size:62px}
+  .note.small{font-size:42px}
+  .note.hidden{color:var(--line)}
+  .note.pop{transform:scale(1.08)}
+  .octave{font-size:.34em;color:var(--muted);align-self:flex-start;margin-left:2px}
+  .sub{font-family:'JetBrains Mono',monospace;color:var(--muted);font-size:15px;min-height:20px;margin-top:6px}
+  .sub b{color:var(--text);font-weight:500}
+  .hint{color:var(--muted);font-size:14px;min-height:20px;margin-top:6px}
+  .timer{height:4px;background:var(--panel2);border-radius:4px;margin:14px 0 0;overflow:hidden;visibility:hidden}
+  .timer.on{visibility:visible}
+  .timer i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+  .row{display:flex;gap:10px;margin-top:14px}
+  .btn{flex:1;border:none;border-radius:16px;padding:18px 10px;font:inherit;font-size:17px;font-weight:700;color:#1a120b;background:var(--accent);touch-action:manipulation}
+  .btn:active{transform:scale(.97)}
+  .btn.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+  .btn.good{background:var(--good)}
+  .btn.bad{background:var(--bad);color:#fff}
+  .btn[disabled]{opacity:.35}
+  .btn.big{font-size:20px;padding:22px 10px}
+  .stave-card{margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:8px 0 10px;text-align:center}
+  .stave-card svg{display:block;margin:0 auto;max-width:100%;height:auto}
+  .stave-card .cap{color:var(--muted);font-size:11px;margin-top:2px}
+  .board-wrap{margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:12px 0 8px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .board-wrap svg{display:block}
+  .legend{display:flex;gap:14px;justify-content:center;color:var(--muted);font-size:12px;padding:6px 10px 2px;flex-wrap:wrap}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px;margin-top:14px}
+  .card h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 10px;font-weight:500}
+  .weak{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{font-family:'JetBrains Mono',monospace;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px 9px;font-size:13px}
+  .chip em{font-style:normal;color:var(--bad);margin-left:6px}
+  .empty{color:var(--muted);font-size:14px}
+  /* settings sheet */
+  .sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .2s;z-index:10}
+  .sheet-bg.open{opacity:1;pointer-events:auto}
+  .sheet{position:fixed;left:0;right:0;bottom:0;max-height:88vh;overflow-y:auto;background:var(--panel);border-top:1px solid var(--line);border-radius:22px 22px 0 0;padding:18px 16px calc(env(safe-area-inset-bottom) + 20px);transform:translateY(calc(100% + 60px));transition:transform .25s;z-index:11}
+  .sheet.open{transform:none}
+  .sheet .inner{max-width:560px;margin:0 auto}
+  .sheet h3{margin:0 0 14px;font-size:18px;display:flex;justify-content:space-between;align-items:center}
+  .sheet h4{margin:22px 0 12px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);font-weight:700}
+  .field{margin-bottom:18px}
+  .field label.t{display:block;font-size:13px;color:var(--muted);margin-bottom:8px}
+  .seg{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:3px;gap:3px}
+  .seg button{flex:1;background:none;border:none;color:var(--text);font:inherit;font-size:14px;padding:10px 4px;border-radius:9px}
+  .seg button.on{background:var(--accent);color:#1a120b;font-weight:700}
+  .multi{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .multi button{background:var(--panel2);border:1px solid var(--line);color:var(--text);font:inherit;font-size:14px;padding:11px 6px;border-radius:11px}
+  .multi button.on{background:var(--tone);border-color:var(--tone);color:#0d1a18;font-weight:700}
+  .multi button small{display:block;font-family:'JetBrains Mono',monospace;font-size:11px;opacity:.75;margin-top:2px;font-weight:500}
+  .toggle{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:15px;gap:12px}
+  .toggle small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+  .sw{position:relative;width:50px;height:30px;flex:none}
+  .sw input{opacity:0;width:0;height:0}
+  .sw span{position:absolute;inset:0;background:var(--panel2);border:1px solid var(--line);border-radius:30px;transition:.2s}
+  .sw span:before{content:"";position:absolute;width:22px;height:22px;left:3px;top:3px;background:var(--muted);border-radius:50%;transition:.2s}
+  .sw input:checked+span{background:var(--accent)}
+  .sw input:checked+span:before{transform:translateX(20px);background:#1a120b}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .rangeval{font-family:'JetBrains Mono',monospace;color:var(--accent)}
+  .note-help{color:var(--muted);font-size:12px;margin-top:6px}
+  .small-btn{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font:inherit;font-size:14px;width:100%}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Bass Note <span>Finder</span></h1>
+    <button class="iconbtn" id="openSettings">⚙ Settings</button>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><b id="sScore">0/0</b><small>Score</small></div>
+    <div class="stat"><b id="sPct">–</b><small>Accuracy</small></div>
+    <div class="stat"><b id="sStreak">0</b><small>Streak</small></div>
+    <div class="stat"><b id="sBest">0</b><small>Best</small></div>
+  </div>
+
+  <div class="modebar" id="kindBar">
+    <button data-v="note">Single notes</button>
+    <button data-v="chord">Chords</button>
+    <button data-v="mix">Mixed</button>
+  </div>
+
+  <div class="stage">
+    <div class="note hidden" id="noteName">?</div>
+    <div class="sub" id="sub"></div>
+    <div class="hint" id="hint">Tap “New note”, listen, then find it on your bass.</div>
+    <div class="timer" id="timer"><i id="timerBar"></i></div>
+
+    <div class="row">
+      <button class="btn big" id="btnNew">▶ New note</button>
+    </div>
+    <div class="row">
+      <button class="btn ghost" id="btnReplay" disabled>↻ Replay</button>
+      <button class="btn ghost" id="btnReveal" disabled>👁 Reveal</button>
+    </div>
+    <div class="row" id="rowJudge" style="display:none">
+      <button class="btn bad" id="btnMiss">✗ Missed</button>
+      <button class="btn good" id="btnGot">✓ Got it</button>
+    </div>
+  </div>
+
+  <div class="stave-card" id="staveCard"><div id="stave"></div><div class="cap">Bass clef · bass music is written an octave above how it sounds</div></div>
+
+  <div class="board-wrap" id="boardWrap"></div>
+  <div class="legend" id="legend"></div>
+
+  <div class="card">
+    <h2>Trickiest so far</h2>
+    <div class="weak" id="weakList"></div>
+  </div>
+</div>
+
+<div class="sheet-bg" id="sheetBg"></div>
+<div class="sheet" id="sheet">
+  <div class="inner">
+    <h3>Settings <button class="iconbtn" id="closeSettings">Done</button></h3>
+
+    <div class="field">
+      <label class="t">Mode</label>
+      <div class="seg" data-key="mode">
+        <button data-v="manual">Manual</button>
+        <button data-v="auto">Hands-free</button>
+      </div>
+    </div>
+
+    <div class="field" id="autoFields">
+      <label class="t">Time to find it: <span class="rangeval" id="thinkVal"></span></label>
+      <input type="range" id="think" min="3" max="20" step="1">
+    </div>
+
+    <h4>Chords</h4>
+    <div class="field">
+      <label class="t">Chord types</label>
+      <div class="multi" id="chordTypes">
+        <button data-v="maj">Major<small>R 3 5</small></button>
+        <button data-v="min">Minor<small>R ♭3 5</small></button>
+        <button data-v="aug">Augmented<small>R 3 ♯5</small></button>
+        <button data-v="dim">Diminished<small>R ♭3 ♭5</small></button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="t">Arpeggio pattern</label>
+      <div class="seg" data-key="pattern">
+        <button data-v="up">Up</button>
+        <button data-v="updown">Up &amp; down</button>
+        <button data-v="block">Up + chord</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="t">Arpeggio speed</label>
+      <div class="seg" data-key="speed">
+        <button data-v="slow">Slow</button>
+        <button data-v="med">Medium</button>
+        <button data-v="fast">Fast</button>
+      </div>
+    </div>
+
+    <h4>Notation</h4>
+    <div class="field">
+      <label class="t">Show on the stave</label>
+      <div class="seg" data-key="stave">
+        <button data-v="off">Off</button>
+        <button data-v="reveal">On reveal</button>
+        <button data-v="always">Straight away</button>
+      </div>
+      <div class="note-help">“Straight away” shows the notation as the sound plays, so you can practise reading it and playing what you see. Chord notes are spelled properly, so you may see things like E♯ or B♭♭.</div>
+    </div>
+
+    <h4>Bass &amp; sound</h4>
+    <div class="field">
+      <label class="t">Strings</label>
+      <div class="seg" data-key="strings">
+        <button data-v="4">4-string (EADG)</button>
+        <button data-v="5">5-string (BEADG)</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="t">Highest fret: <span class="rangeval" id="fretVal"></span></label>
+      <input type="range" id="maxFret" min="3" max="24" step="1">
+    </div>
+
+    <div class="field">
+      <label class="t">Note names</label>
+      <div class="seg" data-key="names">
+        <button data-v="sharp">C♯</button>
+        <button data-v="flat">D♭</button>
+        <button data-v="both">C♯/D♭</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="t">Playback pitch</label>
+      <div class="seg" data-key="shift">
+        <button data-v="0">True bass</button>
+        <button data-v="12">+1 octave</button>
+        <button data-v="24">+2 octaves</button>
+      </div>
+      <div class="note-help">Phone speakers can’t reproduce low bass. Use +1 octave on the speaker, “True bass” with headphones.</div>
+    </div>
+
+    <div class="field">
+      <div class="toggle"><div>Natural notes only<small>No sharps or flats (applies to chord roots too)</small></div><label class="sw"><input type="checkbox" id="naturals"><span></span></label></div>
+      <div class="toggle"><div>Exact octave counts<small>Single notes: reveal tells you which octave to aim for</small></div><label class="sw"><input type="checkbox" id="showOct"><span></span></label></div>
+      <div class="toggle"><div>Practise weak spots more<small>Notes and chords you miss come up more often</small></div><label class="sw"><input type="checkbox" id="weighted"><span></span></label></div>
+    </div>
+
+    <div class="field">
+      <button class="small-btn" id="resetStats">Reset score and weak-spot history</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ---------- constants ----------
+  const SHARP = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
+  const FLAT  = ['C','D♭','D','E♭','E','F','G♭','G','A♭','A','B♭','B'];
+  const NATURAL = new Set([0,2,4,5,7,9,11]);
+  const TUNING = { 4:[43,38,33,28], 5:[43,38,33,28,23] }; // top row = G string, MIDI numbers
+  const CHORDS = {
+    maj:{ iv:[0,4,7], lbl:['R','3','5'],   suf:'',  long:'major' },
+    min:{ iv:[0,3,7], lbl:['R','♭3','5'],  suf:'m', long:'minor' },
+    aug:{ iv:[0,4,8], lbl:['R','3','♯5'],  suf:'+', long:'augmented' },
+    dim:{ iv:[0,3,6], lbl:['R','♭3','♭5'], suf:'°', long:'diminished' },
+  };
+  const SPEED = { slow:0.6, med:0.42, fast:0.26 };
+
+  const defaults = { kind:'note', mode:'manual', think:8, strings:'4', maxFret:12, names:'both', shift:'12',
+                     naturals:false, showOct:true, weighted:true,
+                     chordTypes:['maj','min','aug','dim'], pattern:'up', speed:'med', stave:'reveal' };
+  let S = {...defaults};
+  let stats = { hit:0, miss:0, streak:0, best:0, perNote:{} };
+
+  const store = {
+    get(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } },
+    set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+  };
+  Object.assign(S, store.get('bnf-settings') || {});
+  Object.assign(stats, store.get('bnf-stats') || {});
+  if (!Array.isArray(S.chordTypes) || !S.chordTypes.length) S.chordTypes = [...defaults.chordTypes];
+
+  // current item: {type:'note', m} or {type:'chord', root, ch}
+  let current = null, lastKey = null, revealed = false;
+  let autoTimer = null, autoRunning = false, rafId = null;
+  const $ = id => document.getElementById(id);
+
+  // ---------- naming ----------
+  function pcName(pc, mode = S.names){
+    if (mode === 'flat') return FLAT[pc];
+    if (mode === 'sharp') return SHARP[pc];
+    return SHARP[pc] === FLAT[pc] ? SHARP[pc] : SHARP[pc] + '/' + FLAT[pc];
+  }
+  const single = pc => pcName(pc, S.names === 'both' ? 'sharp' : S.names); // one spelling, for tight spaces
+  const octOf = m => Math.floor(m/12) - 1;
+  function chordName(root, ch){
+    const pc = root % 12, suf = CHORDS[ch].suf;
+    if (S.names === 'both' && SHARP[pc] !== FLAT[pc]) return `${SHARP[pc]}${suf} / ${FLAT[pc]}${suf}`;
+    return pcName(pc) + suf;
+  }
+
+  // ---------- spelling (letter + accidental + octave) ----------
+  const LET = 'CDEFGAB', LPC = [0,2,4,5,7,9,11];
+  const ACC_TXT = { '-2':'♭♭', '-1':'♭', '0':'', '1':'♯', '2':'×' };
+  function spell(m, letter){
+    const acc = ((m%12 - LPC[letter] + 18) % 12) - 6;
+    return { m, letter, acc, oct: (m - LPC[letter] - acc)/12 - 1 };
+  }
+  function letterFor(pc, pref){
+    for (let l=0; l<7; l++) if (LPC[l] === pc) return l;
+    for (let l=0; l<7; l++) if (pref === 'flat' ? LPC[l] === (pc+1)%12 : (LPC[l]+1)%12 === pc) return l;
+  }
+  const spellName = n => LET[n.letter] + ACC_TXT[n.acc];
+  function spelledItem(it){
+    if (it.type === 'note') return [spell(it.m, letterFor(it.m%12, S.names === 'flat' ? 'flat' : 'sharp'))];
+    const prefs = S.names === 'both' ? ['sharp','flat'] : [S.names];
+    let best = null;
+    for (const p of prefs){
+      const L = letterFor(it.root%12, p);
+      const ns = chordNotes(it).map((m,i) => spell(m, (L + [0,2,4][i]) % 7));
+      const score = ns.reduce((a,n) => a + Math.abs(n.acc), 0);
+      if (!best || score < best.score) best = { ns, score };
+    }
+    return best.ns;
+  }
+
+  // ---------- stave ----------
+  function drawStave(){
+    const card = $('staveCard');
+    if (S.stave === 'off'){ card.style.display = 'none'; return; }
+    card.style.display = '';
+    const show = current && (revealed || S.stave === 'always');
+    const notes = show ? spelledItem(current) : [];
+    let steps = notes.map(n => n.oct*7 + n.letter + 7);   // written an octave above sounding
+    const ottava = steps.some(s => s > 32);
+    if (ottava) steps = steps.map(s => s - 7);
+    const W = 320, H = 140, y = st => 52 + (26 - st)*5;   // step 18 = G2 (bottom line), 26 = A3 (top line)
+    const ink = '#f3ece4', lineC = '#8a7d70';
+    let s = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+    for (let l=18; l<=26; l+=2) s += `<line x1="10" x2="${W-10}" y1="${y(l)}" y2="${y(l)}" stroke="${lineC}" stroke-width="1.2"/>`;
+    // bass clef
+    const fy = y(24);
+    s += `<path d="M24 ${fy} C24 ${fy-13} 47 ${fy-14} 47 ${fy+3} C47 ${fy+20} 33 ${fy+30} 17 ${fy+36}" fill="none" stroke="${ink}" stroke-width="3" stroke-linecap="round"/>`;
+    s += `<circle cx="24.5" cy="${fy}" r="4.6" fill="${ink}"/><circle cx="55" cy="${y(25)}" r="2.3" fill="${ink}"/><circle cx="55" cy="${y(23)}" r="2.3" fill="${ink}"/>`;
+    if (!show){
+      s += `<text x="${W/2+20}" y="${y(22)+9}" fill="#3a332d" font-size="30" font-weight="700" text-anchor="middle" font-family="JetBrains Mono">?</text>`;
+    } else {
+      const xs = steps.length === 1 ? [185] : [130, 190, 250];
+      steps.forEach((st, i) => {
+        const x = xs[i], cy = y(st), n = notes[i];
+        const col = (current.type === 'chord' && i === 0) ? '#f2a33a' : ink;
+        for (let l=16; l>=st; l-=2) s += `<line x1="${x-12}" x2="${x+12}" y1="${y(l)}" y2="${y(l)}" stroke="${lineC}" stroke-width="1.4"/>`;
+        for (let l=28; l<=st; l+=2) s += `<line x1="${x-12}" x2="${x+12}" y1="${y(l)}" y2="${y(l)}" stroke="${lineC}" stroke-width="1.4"/>`;
+        s += `<ellipse cx="${x}" cy="${cy}" rx="7.4" ry="5.2" fill="${col}"/>`;
+        s += `<ellipse cx="${x}" cy="${cy}" rx="3.8" ry="2.4" transform="rotate(-35 ${x} ${cy})" fill="#1e1a17"/>`;
+        if (n.acc) s += `<text x="${x-13}" y="${cy+6}" fill="${col}" font-size="${Math.abs(n.acc)===2 && n.acc<0 ? 15 : 18}" text-anchor="end" font-family="system-ui">${ACC_TXT[n.acc]}</text>`;
+      });
+      if (ottava){
+        const x0 = xs[0]-12, x1 = xs[xs.length-1]+14, ty = Math.min(...steps.map(y)) - 16;
+        s += `<text x="${x0}" y="${ty}" fill="${ink}" font-size="13" font-style="italic" font-weight="700" font-family="Georgia,serif">8va</text>`;
+        if (xs.length > 1) s += `<line x1="${x0+28}" x2="${x1}" y1="${ty-4}" y2="${ty-4}" stroke="${ink}" stroke-width="1" stroke-dasharray="4 3"/><line x1="${x1}" x2="${x1}" y1="${ty-4}" y2="${ty+4}" stroke="${ink}" stroke-width="1"/>`;
+      }
+    }
+    s += '</svg>';
+    $('stave').innerHTML = s;
+  }
+
+  // ---------- picking ----------
+  function maxPitch(){ return Math.max(...TUNING[S.strings]) + S.maxFret; }
+  function notePool(){
+    const set = new Set();
+    for (const open of TUNING[S.strings]) for (let f=0; f<=S.maxFret; f++){
+      const m = open + f;
+      if (S.naturals && !NATURAL.has(m % 12)) continue;
+      set.add(m);
+    }
+    return [...set].sort((a,b)=>a-b);
+  }
+  function candidates(){
+    const out = [];
+    const notes = notePool();
+    if (S.kind !== 'chord') notes.forEach(m => out.push({type:'note', m}));
+    if (S.kind !== 'note'){
+      const top = maxPitch();
+      notes.forEach(r => S.chordTypes.forEach(ch => {
+        if (r + CHORDS[ch].iv[2] <= top) out.push({type:'chord', root:r, ch});
+      }));
+    }
+    return out;
+  }
+  function keyFor(it){
+    if (it.type === 'chord') return `ch${it.root % 12}-${it.ch}`;
+    return S.showOct ? String(it.m) : 'pc' + (it.m % 12);
+  }
+  function labelForKey(k){
+    if (k.startsWith('ch')){ const [pc, ch] = k.slice(2).split('-'); return chordName(+pc, ch); }
+    if (k.startsWith('pc')) return pcName(+k.slice(2));
+    return pcName(+k % 12) + octOf(+k);
+  }
+  function pick(){
+    let list = candidates();
+    if (!list.length) return null;
+    const filtered = list.filter(it => keyFor(it) !== lastKey);
+    if (filtered.length) list = filtered;
+    // In mixed mode, give notes and chords roughly equal airtime
+    let w = list.map(it => (S.kind === 'mix' ? (it.type === 'chord' ? 1/Math.max(1,S.chordTypes.length) : 1) : 1));
+    if (S.weighted) w = w.map((x,i) => {
+      const r = stats.perNote[keyFor(list[i])] || {h:0,m:0};
+      return x * Math.max(1, 1 + r.m*2 - r.h*0.5);
+    });
+    let t = Math.random() * w.reduce((a,b)=>a+b,0);
+    for (let i=0;i<list.length;i++){ t -= w[i]; if (t<=0) return list[i]; }
+    return list[list.length-1];
+  }
+
+  // ---------- audio ----------
+  let ctx = null, master = null;
+  function ac(){
+    if (!ctx){
+      const C = window.AudioContext || window.webkitAudioContext; ctx = new C();
+      master = ctx.createDynamicsCompressor(); master.connect(ctx.destination);
+    }
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+  function tone(m, t, dur, level = 0.9){
+    const a = ac();
+    const f = 440 * Math.pow(2, (m + (+S.shift) - 69)/12);
+    const out = a.createGain();
+    out.gain.setValueAtTime(0.0001, t);
+    out.gain.exponentialRampToValueAtTime(level, t+0.008);
+    out.gain.exponentialRampToValueAtTime(level*0.4, t+Math.min(0.35, dur*0.5));
+    out.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+    const lp = a.createBiquadFilter();
+    lp.type = 'lowpass'; lp.Q.value = 1.2;
+    lp.frequency.setValueAtTime(Math.min(f*10, 9000), t);
+    lp.frequency.exponentialRampToValueAtTime(Math.max(f*2.5, 200), t+0.6);
+    const mk = (type, freq, gain) => { const o = a.createOscillator(); o.type = type; o.frequency.value = freq; const g = a.createGain(); g.gain.value = gain; o.connect(g).connect(lp); o.start(t); o.stop(t+dur+0.05); };
+    mk('sawtooth', f, 0.32); mk('sine', f, 0.7); mk('triangle', f*2, 0.18); // octave partial helps small speakers
+    lp.connect(out).connect(master);
+  }
+  function chordNotes(it){ return CHORDS[it.ch].iv.map(i => it.root + i); }
+  // returns playback length in seconds
+  function play(it){
+    const a = ac(), t0 = a.currentTime + 0.03;
+    if (it.type === 'note'){ tone(it.m, t0, 2.6); return 2.6; }
+    const n = chordNotes(it), step = SPEED[S.speed];
+    let seq = n;
+    if (S.pattern === 'updown') seq = [n[0], n[1], n[2], n[1], n[0]];
+    seq.forEach((m,i) => tone(m, t0 + i*step, i === seq.length-1 ? 1.6 : step*1.8, 0.8));
+    let len = seq.length*step + 1.6;
+    if (S.pattern === 'block'){
+      const tb = t0 + seq.length*step + 0.25;
+      n.forEach(m => tone(m, tb, 2.2, 0.45));
+      len = (tb - t0) + 2.2;
+    }
+    return len;
+  }
+
+  // ---------- fretboard ----------
+  function drawBoard(){
+    const strings = TUNING[S.strings], frets = S.maxFret;
+    const fw = 46, sh = 30, left = 40, top = 22;
+    const W = left + (frets+1)*fw + 14, H = top + (strings.length-1)*sh + 32;
+    const show = current && revealed;
+    let s = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+    s += `<rect x="${left+fw}" y="${top-12}" width="${frets*fw}" height="${(strings.length-1)*sh+24}" rx="4" fill="#3b2a1e"/>`;
+    const inl = [3,5,7,9,15,17,19,21];
+    const midY = top + (strings.length-1)*sh/2;
+    for (let f=1; f<=frets; f++){
+      const cx = left + f*fw + fw/2;
+      if (inl.includes(f)) s += `<circle cx="${cx}" cy="${midY}" r="5" fill="#5c4532"/>`;
+      if (f===12 || f===24) s += `<circle cx="${cx}" cy="${top+sh*0.5}" r="5" fill="#5c4532"/><circle cx="${cx}" cy="${top+(strings.length-1.5)*sh}" r="5" fill="#5c4532"/>`;
+      s += `<text x="${cx}" y="${H-4}" fill="#a39687" font-size="11" text-anchor="middle" font-family="JetBrains Mono">${f}</text>`;
+    }
+    s += `<rect x="${left+fw-4}" y="${top-12}" width="6" height="${(strings.length-1)*sh+24}" fill="#e9dfd2"/>`;
+    for (let f=2; f<=frets; f++){ const x = left + f*fw; s += `<line x1="${x}" x2="${x}" y1="${top-12}" y2="${top+(strings.length-1)*sh+12}" stroke="#c9b8a3" stroke-width="2"/>`; }
+    strings.forEach((open,i)=>{
+      const y = top + i*sh;
+      s += `<line x1="${left+fw/2}" x2="${W-6}" y1="${y}" y2="${y}" stroke="#d9cbb8" stroke-width="${1.2+i*0.55}"/>`;
+      s += `<text x="${left-10}" y="${y+4}" fill="#a39687" font-size="13" text-anchor="end" font-family="JetBrains Mono">${single(open%12)}</text>`;
+    });
+
+    let focusFret = null;
+    const dot = (f, i, fill, txtFill, txt) => {
+      const cx = left + f*fw + fw/2, cy = top + i*sh;
+      s += `<circle cx="${cx}" cy="${cy}" r="12.5" fill="${fill}" stroke="#14110f" stroke-width="2"/>`;
+      s += `<text x="${cx}" y="${cy+4}" fill="${txtFill}" font-size="${txt.length>2?9:10.5}" font-weight="700" text-anchor="middle" font-family="JetBrains Mono">${txt}</text>`;
+    };
+    if (show && current.type === 'note'){
+      const target = current.m;
+      strings.forEach((open,i)=>{ for (let f=0; f<=frets; f++){
+        const m = open+f; if (m%12 !== target%12) continue;
+        const strong = m === target || !S.showOct;
+        dot(f, i, strong ? '#f2a33a' : '#7a6a5a', strong ? '#1a120b' : '#f3ece4', single(m%12));
+        if (m === target && (focusFret === null || f < focusFret)) focusFret = f;
+      }});
+    }
+    if (show && current.type === 'chord'){
+      const notes = chordNotes(current), lbl = CHORDS[current.ch].lbl;
+      strings.forEach((open,i)=>{ for (let f=0; f<=frets; f++){
+        const idx = notes.indexOf(open+f); if (idx < 0) continue;
+        const isRoot = idx === 0;
+        dot(f, i, isRoot ? '#f2a33a' : '#5fb3a8', isRoot ? '#1a120b' : '#0d1a18', lbl[idx]);
+        if (isRoot && (focusFret === null || f < focusFret)) focusFret = f;
+      }});
+    }
+    s += '</svg>';
+    const wrap = $('boardWrap'); wrap.innerHTML = s;
+    drawStave();
+    if (focusFret !== null) wrap.scrollLeft = Math.max(0, left + focusFret*fw - wrap.clientWidth/3);
+
+    $('legend').innerHTML = (current && current.type === 'chord')
+      ? '<span><i style="background:var(--accent)"></i>Root</span><span><i style="background:var(--tone)"></i>Chord tones (3rd, 5th)</span>'
+      : '<span><i style="background:var(--accent)"></i>Exact pitch</span><span><i style="background:#7a6a5a"></i>Same note, other octave</span>';
+  }
+
+  // ---------- UI flow ----------
+  function setDisplay(){
+    const el = $('noteName'), sub = $('sub');
+    if (!current || !revealed){ el.className = 'note hidden'; el.textContent = '?'; sub.textContent = current && current.type === 'chord' ? 'chord' : ''; return; }
+    if (current.type === 'note'){
+      const n = pcName(current.m % 12);
+      el.className = 'note pop' + (n.length > 3 ? ' mid' : '');
+      el.innerHTML = n.replace('/', '<span style="color:var(--muted)">/</span>') + (S.showOct ? `<span class="octave">${octOf(current.m)}</span>` : '');
+      sub.textContent = '';
+    } else {
+      const n = chordName(current.root, current.ch);
+      el.className = 'note pop' + (n.length > 6 ? ' small' : n.length > 3 ? ' mid' : '');
+      el.textContent = n;
+      const tones = spelledItem(current).map(spellName);
+      sub.innerHTML = `${CHORDS[current.ch].long} · <b>${tones.join(' – ')}</b>`;
+    }
+    setTimeout(()=>el.classList.remove('pop'), 250);
+  }
+  function newItem(){
+    const it = pick();
+    if (!it){ $('hint').textContent = 'Nothing fits these settings — raise the highest fret or pick more chord types.'; return 0; }
+    current = it; lastKey = keyFor(it); revealed = false;
+    const len = play(current);
+    setDisplay(); drawBoard();
+    $('btnReplay').disabled = false; $('btnReveal').disabled = false;
+    $('rowJudge').style.display = 'none';
+    const what = (S.stave === 'always' ? 'Read it on the stave — ' : '') + (current.type === 'chord' ? 'find the root, then play the arpeggio' : 'find it on the fretboard');
+    const whatCap = what[0].toUpperCase() + what.slice(1);
+    $('hint').textContent = S.mode === 'auto' ? whatCap + '…' : whatCap + ', then tap Reveal.';
+    return len;
+  }
+  function reveal(){
+    if (!current || revealed) return;
+    revealed = true;
+    setDisplay(); drawBoard(); play(current);
+    $('btnReveal').disabled = true;
+    if (S.mode === 'manual'){ $('rowJudge').style.display = 'flex'; $('hint').textContent = 'Did you get it?'; }
+    else $('hint').textContent = 'Next one shortly…';
+  }
+  function judge(ok){
+    const k = keyFor(current);
+    const r = stats.perNote[k] || {h:0,m:0};
+    if (ok){ stats.hit++; stats.streak++; stats.best = Math.max(stats.best, stats.streak); r.h++; }
+    else { stats.miss++; stats.streak = 0; r.m++; }
+    stats.perNote[k] = r;
+    store.set('bnf-stats', stats);
+    renderStats(); newItem();
+  }
+  function renderStats(){
+    const tot = stats.hit + stats.miss;
+    $('sScore').textContent = `${stats.hit}/${tot}`;
+    $('sPct').textContent = tot ? Math.round(stats.hit/tot*100) + '%' : '–';
+    $('sStreak').textContent = stats.streak;
+    $('sBest').textContent = stats.best;
+    const weak = Object.entries(stats.perNote)
+      .filter(([k,r]) => r.m > 0 && (k.startsWith('ch') || (S.showOct ? !k.startsWith('pc') : k.startsWith('pc'))))
+      .sort((a,b) => (b[1].m - b[1].h*0.5) - (a[1].m - a[1].h*0.5)).slice(0,12);
+    $('weakList').innerHTML = weak.length
+      ? weak.map(([k,r]) => `<span class="chip">${labelForKey(k)}<em>${r.m}✗</em></span>`).join('')
+      : '<span class="empty">Mark a few as missed and they’ll show up here.</span>';
+  }
+
+  // ---------- hands-free loop ----------
+  function startAuto(){ autoRunning = true; $('timer').classList.add('on'); lockScreen(true); syncButtons(); cycle(); }
+  function stopAuto(){
+    autoRunning = false; clearTimeout(autoTimer); cancelAnimationFrame(rafId);
+    $('timer').classList.remove('on'); $('timerBar').style.width = '0';
+    $('hint').textContent = 'Paused. Tap Start to carry on.';
+    lockScreen(false); syncButtons();
+  }
+  function cycle(){
+    if (!autoRunning) return;
+    const len = newItem();
+    if (!len){ stopAuto(); return; }
+    const ms = Math.max(S.think*1000, len*1000 + 1500), t0 = performance.now();
+    const tick = () => {
+      const p = Math.min(1, (performance.now()-t0)/ms);
+      $('timerBar').style.width = (p*100) + '%';
+      if (p < 1 && autoRunning) rafId = requestAnimationFrame(tick);
+    };
+    tick();
+    autoTimer = setTimeout(() => {
+      if (!autoRunning) return;
+      reveal();
+      autoTimer = setTimeout(cycle, current.type === 'chord' ? Math.max(3000, len*1000 + 600) : 3000);
+    }, ms);
+  }
+  let wakeLock = null;
+  async function lockScreen(on){
+    try{
+      if (on && 'wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
+      else if (!on && wakeLock){ await wakeLock.release(); wakeLock = null; }
+    }catch(e){}
+  }
+
+  // ---------- settings ----------
+  function syncButtons(){
+    const noun = S.kind === 'chord' ? 'chord' : S.kind === 'mix' ? 'one' : 'note';
+    $('btnNew').textContent = S.mode === 'auto' ? (autoRunning ? '■ Stop' : '▶ Start') : `▶ New ${noun}`;
+  }
+  function syncSettingsUI(){
+    document.querySelectorAll('.seg').forEach(seg => {
+      const k = seg.dataset.key;
+      seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', String(S[k]) === b.dataset.v));
+    });
+    $('kindBar').querySelectorAll('button').forEach(b => b.classList.toggle('on', S.kind === b.dataset.v));
+    $('chordTypes').querySelectorAll('button').forEach(b => b.classList.toggle('on', S.chordTypes.includes(b.dataset.v)));
+    $('think').value = S.think; $('thinkVal').textContent = S.think + 's';
+    $('maxFret').value = S.maxFret; $('fretVal').textContent = S.maxFret;
+    ['naturals','showOct','weighted'].forEach(k => $(k).checked = !!S[k]);
+    $('autoFields').style.display = S.mode === 'auto' ? '' : 'none';
+    syncButtons();
+  }
+  function clearCurrent(){
+    current = null; revealed = false; setDisplay();
+    $('btnReplay').disabled = true; $('btnReveal').disabled = true; $('rowJudge').style.display = 'none';
+  }
+  function saveSettings(resetItem){
+    store.set('bnf-settings', S);
+    syncSettingsUI(); renderStats();
+    if (resetItem) clearCurrent();
+    drawBoard();
+  }
+  document.querySelectorAll('.seg').forEach(seg => seg.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const k = seg.dataset.key;
+    if (k === 'mode' && autoRunning) stopAuto();
+    S[k] = b.dataset.v; saveSettings(k === 'strings');
+  }));
+  $('kindBar').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b || S.kind === b.dataset.v) return;
+    S.kind = b.dataset.v; saveSettings(true);
+    if (!autoRunning) $('hint').textContent = S.kind === 'note' ? 'Tap “New note”, listen, then find it on your bass.' : 'Listen to the arpeggio, find the root, then play the chord tones.';
+  });
+  $('chordTypes').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const v = b.dataset.v;
+    if (S.chordTypes.includes(v)){ if (S.chordTypes.length > 1) S.chordTypes = S.chordTypes.filter(x => x !== v); }
+    else S.chordTypes = [...S.chordTypes, v];
+    saveSettings(false);
+  });
+  $('think').addEventListener('input', e => { S.think = +e.target.value; saveSettings(false); });
+  $('maxFret').addEventListener('input', e => { S.maxFret = +e.target.value; saveSettings(true); });
+  ['naturals','showOct','weighted'].forEach(k => $(k).addEventListener('change', e => { S[k] = e.target.checked; saveSettings(false); }));
+  $('resetStats').addEventListener('click', () => { stats = { hit:0, miss:0, streak:0, best:0, perNote:{} }; store.set('bnf-stats', stats); renderStats(); });
+
+  const openSheet = o => { $('sheet').classList.toggle('open', o); $('sheetBg').classList.toggle('open', o); };
+  $('openSettings').onclick = () => openSheet(true);
+  $('closeSettings').onclick = () => openSheet(false);
+  $('sheetBg').onclick = () => openSheet(false);
+
+  // ---------- buttons ----------
+  $('btnNew').onclick = () => { ac(); if (S.mode === 'auto') (autoRunning ? stopAuto() : startAuto()); else newItem(); };
+  $('btnReplay').onclick = () => { if (current) play(current); };
+  $('btnReveal').onclick = reveal;
+  $('btnGot').onclick = () => judge(true);
+  $('btnMiss').onclick = () => judge(false);
+
+  syncSettingsUI(); renderStats(); drawBoard();
+})();
+</script>
+</body>
+</html>
