@@ -47,6 +47,17 @@
   .modebar{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:4px;gap:4px;margin-bottom:14px}
   .modebar button{flex:1;background:none;border:none;color:var(--muted);font:inherit;font-size:15px;font-weight:500;padding:10px 4px;border-radius:10px}
   .modebar button.on{background:var(--panel2);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)}
+  .hbtns{display:flex;gap:6px}
+  #micBtn.on{background:var(--good);border-color:var(--good);color:#0f1a0f;font-weight:700}
+  .listen{display:none;align-items:center;justify-content:center;gap:10px;margin-top:10px;padding:8px 12px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--muted)}
+  .listen.on{display:flex}
+  .listen.ok{color:var(--good);border-color:var(--good)}
+  .listen.bad{color:#f08a6c;border-color:#7a3a2a}
+  .listen .lvl{width:40px;height:6px;background:var(--line);border-radius:3px;overflow:hidden;flex:none}
+  .listen .lvl i{display:block;height:100%;width:0;background:var(--good);transition:width .05s}
+  .listen .steps span{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--line);margin:0 2px}
+  .listen .steps span.done{background:var(--good)}
+  .stage.correct{border-color:var(--good);box-shadow:0 0 0 2px var(--good) inset}
   .stage{background:radial-gradient(120% 90% at 50% 0%,#2c241e 0%,var(--panel) 70%);border:1px solid var(--line);border-radius:22px;padding:22px 16px 18px;text-align:center;position:relative;overflow:hidden}
   .note{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:88px;line-height:1;min-height:92px;letter-spacing:-.04em;transition:transform .25s;display:flex;align-items:center;justify-content:center}
   .note.mid{font-size:62px}
@@ -133,7 +144,10 @@
 <div class="wrap">
   <header>
     <h1>Bass Note <span>Finder</span></h1>
-    <button class="iconbtn" id="openSettings">⚙ Settings</button>
+    <div class="hbtns">
+      <button class="iconbtn" id="micBtn" title="Listen to my playing">🎤 Off</button>
+      <button class="iconbtn" id="openSettings">⚙ Settings</button>
+    </div>
   </header>
 
   <div class="stats">
@@ -150,10 +164,11 @@
     <button data-v="mix">Mixed</button>
   </div>
 
-  <div class="stage">
+  <div class="stage" id="stage">
     <div class="note hidden" id="noteName">?</div>
     <div class="sub" id="sub"></div>
     <div class="hint" id="hint">Tap “New note”, listen, then find it on your bass.</div>
+    <div class="listen" id="listenBar"><span class="lvl"><i id="lvl"></i></span><span class="heard" id="heard"></span><span class="steps" id="steps"></span></div>
     <div class="timer" id="timer"><i id="timerBar"></i></div>
 
     <div class="row">
@@ -190,6 +205,7 @@
       <li><b>Check.</b> Tap Reveal to see the name and every place it lives on the fretboard, then mark whether you got it.</li>
     </ol>
     <p><b>Intervals mode</b> plays 2–4 notes from a key you choose. Name the interval between each pair (e.g. major 3rd up, perfect 4th down), then reveal the notes, their scale degrees and where they sit on the neck.</p>
+    <p><b>Listening:</b> tap 🎤 and the app listens through your microphone. Play the note (or the chord or interval notes in order) and it marks you right automatically and moves on.</p>
     <p>Hands-free mode does all of this on a timer so you can keep both hands on the instrument. Notes you miss come back more often.</p>
     <p><b>Install it:</b> on iPhone tap Share → Add to Home Screen; on Android open the browser menu → Install app. Once installed it works offline. Your score and settings stay on your device.</p>
   </details>
@@ -273,6 +289,16 @@
         <button data-v="med">Medium</button>
         <button data-v="fast">Fast</button>
       </div>
+    </div>
+
+    <h4>Listening</h4>
+    <div class="field">
+      <label class="t">When listening (🎤 button), count a note as right if…</label>
+      <div class="seg" data-key="matchMode">
+        <button data-v="pc">Same note name</button>
+        <button data-v="exact">Exact octave</button>
+      </div>
+      <div class="note-help">Phone mics pick up very little of a bass’s lowest frequencies, so octaves are hard to tell apart. “Same note name” is reliable; use “Exact octave” with headphones and a good mic or an audio interface. Listening needs microphone permission and only works when the app is opened from a website over HTTPS.</div>
     </div>
 
     <h4>Notation</h4>
@@ -360,7 +386,8 @@
   const defaults = { kind:'note', mode:'manual', think:8, strings:'4', maxFret:12, names:'both', shift:'12',
                      naturals:false, showOct:true, weighted:true,
                      chordTypes:['maj','min','aug','dim'], pattern:'up', speed:'med', stave:'hint', bassFrets:'20',
-                     scale:'major', keyIdx:0, randKey:false, ivCount:'3', ivMax:'12', ivTonic:false };
+                     scale:'major', keyIdx:0, randKey:false, ivCount:'3', ivMax:'12', ivTonic:false,
+                     listen:false, matchMode:'pc' };
   let S = {...defaults};
   let stats = { hit:0, miss:0, streak:0, best:0, perNote:{} };
 
@@ -622,7 +649,13 @@
   }
   function chordNotes(it){ return CHORDS[it.ch].iv.map(i => it.root + i); }
   // returns playback length in seconds
+  // Play, and stop the microphone hearing the app's own sound until it has died away.
   function play(it){
+    const len = playSound(it);
+    L.muteUntil = performance.now() + len*1000 + 350;
+    return len;
+  }
+  function playSound(it){
     const a = ac(), t0 = a.currentTime + 0.03;
     if (it.type === 'note'){ tone(it.m, t0, 2.6); return 2.6; }
     if (it.type === 'iv'){
@@ -745,31 +778,38 @@
     const it = pick();
     if (!it){ $('hint').textContent = 'Nothing fits these settings — raise “Practise up to fret”, allow bigger jumps or pick more chord types.'; return 0; }
     current = it; lastKey = keyFor(it); revealed = false; hinted = false;
+    resetListen();
     const len = play(current);
     setDisplay(); drawBoard();
     $('btnReplay').disabled = false; $('btnReveal').disabled = false; $('btnHint').disabled = false;
     $('rowJudge').style.display = 'none';
     const what = (S.stave === 'always' ? 'Read it on the stave — ' : '') + (current.type === 'iv' ? 'name the interval between each note' : current.type === 'chord' ? 'find the root, then play the arpeggio' : 'find it on the fretboard');
     const whatCap = what[0].toUpperCase() + what.slice(1);
-    $('hint').textContent = S.mode === 'auto' ? whatCap + '…' : whatCap + ', then tap Reveal.';
+    const listening = !!mic;
+    $('hint').textContent = S.mode === 'auto' ? whatCap + '…'
+      : listening ? (current.type === 'iv' ? 'Play the notes back in order — I’m listening.' : current.type === 'chord' ? 'Play root, 3rd, 5th in order — I’m listening.' : 'Play it — I’m listening.')
+      : whatCap + ', then tap Reveal.';
     return len;
   }
-  function reveal(){
+  function reveal(fromListen){
     if (!current || revealed) return;
     revealed = true;
-    setDisplay(); drawBoard(); play(current);
+    setDisplay(); drawBoard();
+    if (!fromListen) play(current);
     $('btnReveal').disabled = true; $('btnHint').disabled = true;
+    if (fromListen) return;
     if (S.mode === 'manual'){ $('rowJudge').style.display = 'flex'; $('hint').textContent = 'Did you get it?'; }
     else $('hint').textContent = 'Next one shortly…';
   }
-  function judge(ok){
+  function judge(ok){ record(ok); newItem(); }
+  function record(ok){
     if (ok){ stats.hit++; stats.streak++; stats.best = Math.max(stats.best, stats.streak); }
     else { stats.miss++; stats.streak = 0; }
     // intervals: track each interval in the round; everything else: the item itself
     const keys = current.type === 'iv' ? [...new Set(intervalsOf(current).map(v => 'iv' + v.short))] : [keyFor(current)];
     keys.forEach(k => { const r = stats.perNote[k] || {h:0,m:0}; ok ? r.h++ : r.m++; stats.perNote[k] = r; });
     store.set('bnf-stats', stats);
-    renderStats(); newItem();
+    renderStats();
   }
   function renderStats(){
     const tot = stats.hit + stats.miss;
@@ -806,6 +846,7 @@
     tick();
     autoTimer = setTimeout(() => {
       if (!autoRunning) return;
+      if (mic && !L.solved) record(false);   // listening: time ran out = miss
       reveal();
       autoTimer = setTimeout(cycle, current.type !== 'note' ? Math.max(3000, len*1000 + 1200) : 3000);
     }, ms);
@@ -886,8 +927,163 @@
   $('closeSettings').onclick = () => openSheet(false);
   $('sheetBg').onclick = () => openSheet(false);
 
+  // ---------- listening: microphone pitch detection ----------
+  // YIN pitch detector tuned for bass (≈28–700 Hz). Input is decimated by 2 for speed.
+  function detectPitch(buf, sr){
+    let rms = 0;
+    for (let i=0; i<buf.length; i++) rms += buf[i]*buf[i];
+    rms = Math.sqrt(rms / buf.length);
+    if (rms < 0.008) return { rms, f:0 };
+    const n = buf.length >> 1, x = new Float32Array(n);
+    for (let i=0; i<n; i++) x[i] = (buf[2*i] + buf[2*i+1]) * 0.5;
+    const fs = sr / 2, W = n >> 1;
+    const tMin = Math.max(2, Math.floor(fs / 700)), tMax = Math.min(W - 2, Math.ceil(fs / 28));
+    const c = new Float32Array(tMax + 2);
+    let run = 0; c[0] = 1;
+    for (let t=1; t<=tMax+1; t++){
+      let s = 0;
+      for (let i=0; i<W; i++){ const d = x[i] - x[i+t]; s += d*d; }
+      run += s; c[t] = run ? s * t / run : 1;
+    }
+    let tau = -1;
+    for (let t=tMin; t<=tMax; t++){
+      if (c[t] < 0.15){ while (t+1 <= tMax && c[t+1] < c[t]) t++; tau = t; break; }
+    }
+    if (tau < 0){
+      let best = tMin;
+      for (let t=tMin; t<=tMax; t++) if (c[t] < c[best]) best = t;
+      if (c[best] < 0.3) tau = best; else return { rms, f:0 };
+    }
+    const a = c[tau-1], b = c[tau], d2 = c[tau+1], den = a + d2 - 2*b;
+    const shift = den ? (a - d2) / (2*den) : 0;
+    return { rms, f: fs / (tau + shift) };
+  }
+
+  let mic = null, autoNext = null;
+  const L = { idx:0, solved:false, lastFired:null, hist:[], silent:0, prevRms:0, muteUntil:0 };
+
+  async function startMic(){
+    if (mic) return true;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.isSecureContext){
+      micFail('The microphone isn’t available here. Open the app from your own website (over HTTPS) to use listening.');
+      return false;
+    }
+    try{
+      const a = ac();
+      const stream = await navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:false, noiseSuppression:false, autoGainControl:false } });
+      const src = a.createMediaStreamSource(stream);
+      const an = a.createAnalyser(); an.fftSize = 4096; src.connect(an);
+      mic = { stream, an, buf:new Float32Array(an.fftSize), timer:setInterval(listenTick, 50) };
+      syncListenUI();
+      return true;
+    }catch(e){
+      let embedded = false; try { embedded = window.self !== window.top; } catch(_) { embedded = true; }
+      micFail(e && e.name === 'NotAllowedError' && !embedded
+        ? 'Microphone access was blocked. Allow it for this site in your browser settings, then try again.'
+        : 'Couldn’t start the microphone. Open the app from your own website (over HTTPS) to use listening.');
+      return false;
+    }
+  }
+  function stopMic(){
+    if (!mic) return;
+    clearInterval(mic.timer); mic.stream.getTracks().forEach(t => t.stop()); mic = null;
+    syncListenUI();
+  }
+  function micFail(msg){ S.listen = false; store.set('bnf-settings', S); syncListenUI(); $('hint').textContent = msg; }
+
+  function syncListenUI(){
+    const on = !!S.listen;
+    $('micBtn').classList.toggle('on', on);
+    $('micBtn').textContent = on ? '🎤 On' : '🎤 Off';
+    $('listenBar').classList.toggle('on', on);
+    if (on && !mic) setHeard('Tap New note to start listening', '');
+    else if (on) setHeard('Listening…', '');
+  }
+  function setHeard(text, cls){ $('heard').textContent = text; $('listenBar').className = 'listen' + (S.listen ? ' on' : '') + (cls ? ' ' + cls : ''); }
+
+  const targets = it => it.type === 'note' ? [it.m] : it.type === 'chord' ? chordNotes(it) : it.notes;
+  const matches = (m, t) => S.matchMode === 'exact' ? m === t : ((m - t) % 12 + 12) % 12 === 0;
+
+  function resetListen(){
+    clearTimeout(autoNext);
+    Object.assign(L, { idx:0, solved:false, lastFired:null, hist:[] });
+    $('stage').classList.remove('correct');
+    renderSteps();
+    if (mic) setHeard('Listening…', '');
+  }
+  function renderSteps(){
+    const n = current ? targets(current).length : 0;
+    $('steps').innerHTML = n > 1 ? Array.from({length:n}, (_, i) => `<span class="${i < L.idx ? 'done' : ''}"></span>`).join('') : '';
+  }
+
+  function listenTick(){
+    if (!mic) return;
+    mic.an.getFloatTimeDomainData(mic.buf);
+    const { rms, f } = detectPitch(mic.buf, ctx.sampleRate);
+    $('lvl').style.width = Math.min(100, rms * 500) + '%';
+    if (performance.now() < L.muteUntil){ L.hist = []; L.lastFired = null; L.prevRms = rms; return; }
+    if (rms < 0.008){
+      if (++L.silent >= 3) L.lastFired = null;        // a gap lets the same note count again
+      L.hist.push(null);
+    } else {
+      L.silent = 0;
+      if (L.prevRms > 0 && rms > L.prevRms * 2.5){ L.lastFired = null; L.hist = []; }  // new pluck
+      L.hist.push(f ? Math.round(69 + 12 * Math.log2(f / 440)) : null);
+    }
+    L.prevRms = rms;
+    if (L.hist.length > 5) L.hist.shift();
+    // a note counts once it's been steady for ~200 ms (4 of the last 5 readings)
+    const counts = {};
+    L.hist.forEach(m => { if (m != null) counts[m] = (counts[m] || 0) + 1; });
+    const stable = Object.keys(counts).find(m => counts[m] >= 4);
+    if (stable != null && +stable !== L.lastFired){ L.lastFired = +stable; onHeard(+stable); }
+  }
+
+  function onHeard(m){
+    const name = single(((m % 12) + 12) % 12) + (S.matchMode === 'exact' ? octOf(m) : '');
+    if (!current || revealed || L.solved){ setHeard(`Heard ${name}`, ''); return; }
+    const tg = targets(current);
+    if (matches(m, tg[L.idx])){
+      L.idx++; renderSteps();
+      if (L.idx >= tg.length){ setHeard(`✓ ${name} — correct!`, 'ok'); solved(); }
+      else setHeard(`✓ ${name} — now the next note`, 'ok');
+    } else if (L.idx > 0 && matches(m, tg[L.idx - 1])){
+      setHeard(`✓ ${name} — now the next note`, 'ok');   // previous note still ringing
+    } else {
+      setHeard(`${name} — not quite, try again`, 'bad');
+    }
+  }
+
+  function solved(){
+    L.solved = true;
+    $('stage').classList.add('correct');
+    record(true);
+    reveal(true);
+    $('rowJudge').style.display = 'none';
+    if (S.mode === 'auto' && autoRunning){
+      clearTimeout(autoTimer); cancelAnimationFrame(rafId); $('timerBar').style.width = '100%';
+      $('hint').textContent = 'Correct! Next one coming up…';
+      autoTimer = setTimeout(cycle, 2200);
+    } else {
+      $('hint').textContent = 'Correct! Next one coming up…';
+      const was = current;
+      autoNext = setTimeout(() => { if (current === was) newItem(); }, 2200);
+    }
+  }
+
+  $('micBtn').onclick = async () => {
+    ac();
+    if (S.listen){ S.listen = false; store.set('bnf-settings', S); stopMic(); return; }
+    S.listen = true; store.set('bnf-settings', S); syncListenUI();
+    if (await startMic() && current && !revealed) $('hint').textContent = 'Listening — play it.';
+  };
+
   // ---------- buttons ----------
-  $('btnNew').onclick = () => { ac(); if (S.mode === 'auto') (autoRunning ? stopAuto() : startAuto()); else newItem(); };
+  $('btnNew').onclick = async () => {
+    ac();
+    if (S.listen && !mic) await startMic();
+    if (S.mode === 'auto') (autoRunning ? stopAuto() : startAuto()); else newItem();
+  };
   $('btnReplay').onclick = () => { if (current) play(current); };
   $('btnReveal').onclick = reveal;
   function hint(){
@@ -901,7 +1097,7 @@
   $('btnGot').onclick = () => judge(true);
   $('btnMiss').onclick = () => judge(false);
 
-  syncSettingsUI(); renderStats(); drawBoard();
+  syncSettingsUI(); renderStats(); drawBoard(); syncListenUI();
 
   // Offline support (only works when served over http/https)
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
