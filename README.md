@@ -5,6 +5,7 @@ A single-page ear-training app for bass guitar. It plays a random note or chord 
 ## Features
 
 - **Single notes, chords or mixed.** Chords cover major, minor, augmented and diminished triads, played as an up, up-and-down or up-plus-block-chord arpeggio at three speeds.
+- **Intervals mode.** Plays 2, 3 or 4 notes from a chosen key (major or natural minor, fixed or random key). Name each interval, then reveal the intervals (e.g. M3 ↑, P4 ↓), note names and scale degrees, with the notes numbered on the fretboard and shown on the stave with the key signature. Options for the biggest jump (4th, 5th or octave) and starting on the key note. Missed intervals come up more often.
 - **Manual or hands-free.** In hands-free mode the app plays, waits a set time (3–20 s), reveals the answer and moves on, so you can keep both hands on the bass.
 - **Fretboard reveal.** In note mode, every position of the exact pitch is marked, with other octaves shown faintly. In chord mode the root and chord tones are marked with interval labels (R, ♭3, ♯5…).
 - **Stave notation.** The note or chord is shown in bass clef, written an octave above sounding pitch (standard bass notation), with 8va for high notes and correct chord spelling. The stave can be off, hidden behind a 💡 Hint button (tap to see the note in notation before revealing the answer), or shown straight away for reading practice.

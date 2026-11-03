@@ -51,6 +51,10 @@
   .note{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:88px;line-height:1;min-height:92px;letter-spacing:-.04em;transition:transform .25s;display:flex;align-items:center;justify-content:center}
   .note.mid{font-size:62px}
   .note.small{font-size:42px}
+  .note.xs{font-size:31px;letter-spacing:-.02em}
+  .note .dir{color:var(--accent)}
+  .note .gap{display:inline-block;width:.45em}
+  .sub .long{display:block;font-family:'Space Grotesk',system-ui,sans-serif;font-size:14px;margin-top:4px}
   .note.hidden{color:var(--line)}
   .note.pop{transform:scale(1.08)}
   .octave{font-size:.34em;color:var(--muted);align-self:flex-start;margin-left:2px}
@@ -106,6 +110,10 @@
   .multi{display:grid;grid-template-columns:1fr 1fr;gap:6px}
   .multi button{background:var(--panel2);border:1px solid var(--line);color:var(--text);font:inherit;font-size:14px;padding:11px 6px;border-radius:11px}
   .multi button.on{background:var(--tone);border-color:var(--tone);color:#0d1a18;font-weight:700}
+  .keys{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin-bottom:8px}
+  .keys button{background:var(--panel2);border:1px solid var(--line);color:var(--text);font:inherit;font-size:14px;padding:10px 0;border-radius:10px}
+  .keys button.on{background:var(--accent);border-color:var(--accent);color:#1a120b;font-weight:700}
+  .keys.off{opacity:.35;pointer-events:none}
   .multi button small{display:block;font-family:'JetBrains Mono',monospace;font-size:11px;opacity:.75;margin-top:2px;font-weight:500}
   .toggle{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:15px;gap:12px}
   .toggle small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
@@ -136,8 +144,9 @@
   </div>
 
   <div class="modebar" id="kindBar">
-    <button data-v="note">Single notes</button>
+    <button data-v="note">Notes</button>
     <button data-v="chord">Chords</button>
+    <button data-v="iv">Intervals</button>
     <button data-v="mix">Mixed</button>
   </div>
 
@@ -180,6 +189,7 @@
       <li><b>Stuck?</b> Tap 💡 Hint to see it written on the bass clef stave.</li>
       <li><b>Check.</b> Tap Reveal to see the name and every place it lives on the fretboard, then mark whether you got it.</li>
     </ol>
+    <p><b>Intervals mode</b> plays 2–4 notes from a key you choose. Name the interval between each pair (e.g. major 3rd up, perfect 4th down), then reveal the notes, their scale degrees and where they sit on the neck.</p>
     <p>Hands-free mode does all of this on a timer so you can keep both hands on the instrument. Notes you miss come back more often.</p>
     <p><b>Install it:</b> on iPhone tap Share → Add to Home Screen; on Android open the browser menu → Install app. Once installed it works offline. Your score and settings stay on your device.</p>
   </details>
@@ -203,6 +213,39 @@
       <input type="range" id="think" min="3" max="20" step="1">
     </div>
 
+    <h4>Intervals</h4>
+    <div class="field">
+      <label class="t">Scale</label>
+      <div class="seg" data-key="scale">
+        <button data-v="major">Major</button>
+        <button data-v="minor">Natural minor</button>
+      </div>
+    </div>
+    <div class="field">
+      <label class="t">Key</label>
+      <div class="keys" id="keyGrid"></div>
+      <div class="toggle"><div>Random key each round</div><label class="sw"><input type="checkbox" id="randKey"><span></span></label></div>
+    </div>
+    <div class="field">
+      <label class="t">Notes per round</label>
+      <div class="seg" data-key="ivCount">
+        <button data-v="2">2</button>
+        <button data-v="3">3</button>
+        <button data-v="4">4</button>
+      </div>
+    </div>
+    <div class="field">
+      <label class="t">Biggest jump between notes</label>
+      <div class="seg" data-key="ivMax">
+        <button data-v="5">Up to a 4th</button>
+        <button data-v="7">Up to a 5th</button>
+        <button data-v="12">Up to an octave</button>
+      </div>
+    </div>
+    <div class="field">
+      <div class="toggle"><div>Start on the key note<small>First note is always the tonic, which is easier to hear from</small></div><label class="sw"><input type="checkbox" id="ivTonic"><span></span></label></div>
+    </div>
+
     <h4>Chords</h4>
     <div class="field">
       <label class="t">Chord types</label>
@@ -224,7 +267,7 @@
     </div>
 
     <div class="field">
-      <label class="t">Arpeggio speed</label>
+      <label class="t">Playback speed (chords &amp; intervals)</label>
       <div class="seg" data-key="speed">
         <button data-v="slow">Slow</button>
         <button data-v="med">Medium</button>
@@ -316,7 +359,8 @@
 
   const defaults = { kind:'note', mode:'manual', think:8, strings:'4', maxFret:12, names:'both', shift:'12',
                      naturals:false, showOct:true, weighted:true,
-                     chordTypes:['maj','min','aug','dim'], pattern:'up', speed:'med', stave:'hint', bassFrets:'20' };
+                     chordTypes:['maj','min','aug','dim'], pattern:'up', speed:'med', stave:'hint', bassFrets:'20',
+                     scale:'major', keyIdx:0, randKey:false, ivCount:'3', ivMax:'12', ivTonic:false };
   let S = {...defaults};
   let stats = { hit:0, miss:0, streak:0, best:0, perNote:{} };
 
@@ -362,6 +406,7 @@
   const spellName = n => LET[n.letter] + ACC_TXT[n.acc];
   function spelledItem(it){
     if (it.type === 'note') return [spell(it.m, letterFor(it.m%12, S.names === 'flat' ? 'flat' : 'sharp'))];
+    if (it.type === 'iv') return it.notes.map(m => spellInKey(m, it.key));
     const prefs = S.names === 'both' ? ['sharp','flat'] : [S.names];
     let best = null;
     for (const p of prefs){
@@ -371,6 +416,39 @@
       if (!best || score < best.score) best = { ns, score };
     }
     return best.ns;
+  }
+
+  // ---------- keys & intervals ----------
+  const SCALES = { major:[0,2,4,5,7,9,11], minor:[0,2,3,5,7,8,10] };
+  const KEYS = { major:['C','G','D','A','E','B','F♯','F','B♭','E♭','A♭','D♭'],
+                 minor:['A','E','B','F♯','C♯','G♯','D♯','D','G','C','F','B♭'] };
+  const SIGS = [0,1,2,3,4,5,6,-1,-2,-3,-4,-5]; // sharps (+) / flats (-) in the key signature
+  function keyInfo(scale, idx){
+    const name = KEYS[scale][idx], letter = LET.indexOf(name[0]);
+    const acc = name.includes('♯') ? 1 : name.includes('♭') ? -1 : 0;
+    return { scale, idx, name, letter, pc:(LPC[letter] + acc + 12) % 12, sig:SIGS[idx] };
+  }
+  const keyLabel = k => `${k.name} ${k.scale === 'major' ? 'major' : 'minor'}`;
+  const degreeOf = (m, k) => SCALES[k.scale].indexOf((m - k.pc + 12) % 12);
+  const spellInKey = (m, k) => spell(m, (k.letter + degreeOf(m, k)) % 7);
+
+  const IV_BASE = {1:0,2:2,3:4,4:5,5:7,6:9,7:11,8:12};
+  const ORD = {1:'unison',2:'2nd',3:'3rd',4:'4th',5:'5th',6:'6th',7:'7th',8:'octave'};
+  const QLONG = { P:'perfect', M:'major', m:'minor', A:'augmented', d:'diminished' };
+  function intervalOf(a, b){            // a, b = spelled notes, in playing order
+    const lo = a.m <= b.m ? a : b, hi = a.m <= b.m ? b : a;
+    const semis = hi.m - lo.m;
+    const num = (hi.oct*7 + hi.letter) - (lo.oct*7 + lo.letter) + 1;
+    const diff = semis - (IV_BASE[num] ?? semis);
+    const perfect = [1,4,5,8].includes(num);
+    const q = perfect ? ({'0':'P','1':'A','-1':'d'})[diff] : ({'0':'M','-1':'m','1':'A','-2':'d'})[diff];
+    const short = (q || '?') + num;
+    const long = num === 8 ? 'octave' : `${QLONG[q] || ''} ${ORD[num] || num}`.trim();
+    return { short, long, up: b.m > a.m, semis };
+  }
+  function intervalsOf(it){
+    const sp = spelledItem(it);
+    return sp.slice(1).map((n, i) => intervalOf(sp[i], n));
   }
 
   // ---------- stave ----------
@@ -392,14 +470,26 @@
     const fy = y(24);
     s += `<path d="M24 ${fy} C24 ${fy-13} 47 ${fy-14} 47 ${fy+3} C47 ${fy+20} 33 ${fy+30} 17 ${fy+36}" fill="none" stroke="${ink}" stroke-width="3" stroke-linecap="round"/>`;
     s += `<circle cx="24.5" cy="${fy}" r="4.6" fill="${ink}"/><circle cx="55" cy="${y(25)}" r="2.3" fill="${ink}"/><circle cx="55" cy="${y(23)}" r="2.3" fill="${ink}"/>`;
+    // key signature (interval mode)
+    const isIv = current && current.type === 'iv';
+    const sig = isIv ? current.key.sig : 0;
+    const SHARP_POS = [24,21,25,22,19,23,20], FLAT_POS = [20,23,19,22,18,21,17];
+    for (let i=0; i<Math.abs(sig); i++){
+      const st = sig > 0 ? SHARP_POS[i] : FLAT_POS[i];
+      s += `<text x="${70 + i*10}" y="${y(st) + (sig > 0 ? 6 : 4)}" fill="${ink}" font-size="18" text-anchor="middle" font-family="system-ui">${sig > 0 ? '♯' : '♭'}</text>`;
+    }
     if (!show){
       const tip = current && S.stave === 'hint';
       s += `<text x="${W/2+20}" y="${y(22)+(tip?6:9)}" fill="${tip ? '#a39687' : '#3a332d'}" font-size="${tip?15:30}" font-weight="700" text-anchor="middle" font-family="${tip ? 'Space Grotesk,system-ui' : 'JetBrains Mono'}">${tip ? '💡 Tap for a hint' : '?'}</text>`;
     } else {
-      const xs = steps.length === 1 ? [185] : [130, 190, 250];
+      let xs = steps.length === 1 ? [185] : [130, 190, 250];
+      if (isIv){
+        const start = 70 + Math.abs(sig)*10 + 34, end = 292, n = steps.length;
+        xs = steps.map((_, i) => Math.round(n === 1 ? start : start + i*(end - start)/(n - 1)));
+      }
       steps.forEach((st, i) => {
-        const x = xs[i], cy = y(st), n = notes[i];
-        const col = (current.type === 'chord' && i === 0) ? '#f2a33a' : ink;
+        const x = xs[i], cy = y(st), n = isIv ? { ...notes[i], acc:0 } : notes[i]; // key signature covers in-key notes
+        const col = (current.type !== 'note' && i === 0) ? '#f2a33a' : ink;
         for (let l=16; l>=st; l-=2) s += `<line x1="${x-12}" x2="${x+12}" y1="${y(l)}" y2="${y(l)}" stroke="${lineC}" stroke-width="1.4"/>`;
         for (let l=28; l<=st; l+=2) s += `<line x1="${x-12}" x2="${x+12}" y1="${y(l)}" y2="${y(l)}" stroke="${lineC}" stroke-width="1.4"/>`;
         s += `<ellipse cx="${x}" cy="${cy}" rx="7.4" ry="5.2" fill="${col}"/>`;
@@ -427,6 +517,35 @@
     }
     return [...set].sort((a,b)=>a-b);
   }
+  function pickIntervals(){
+    const key = keyInfo(S.scale, S.randKey ? Math.floor(Math.random()*12) : +S.keyIdx);
+    const pool = [];
+    for (const open of TUNING[S.strings]) for (let f=0; f<=S.maxFret; f++){
+      const m = open + f;
+      if (degreeOf(m, key) >= 0 && !pool.includes(m)) pool.push(m);
+    }
+    if (pool.length < 2) return null;
+    const n = +S.ivCount, maxJ = +S.ivMax;
+    const weightOf = (a, b) => {
+      if (!S.weighted) return 1;
+      const r = stats.perNote['iv' + intervalOf(spellInKey(a, key), spellInKey(b, key)).short] || {h:0,m:0};
+      return Math.max(1, 1 + r.m*2 - r.h*0.5);
+    };
+    const choose = (list, w) => { let t = Math.random()*w.reduce((a,b)=>a+b,0); for (let i=0;i<list.length;i++){ t -= w[i]; if (t<=0) return list[i]; } return list[list.length-1]; };
+    for (let tries=0; tries<200; tries++){
+      let starts = S.ivTonic ? pool.filter(m => m % 12 === key.pc) : pool;
+      if (!starts.length) starts = pool;
+      const seq = [starts[Math.floor(Math.random()*starts.length)]];
+      while (seq.length < n){
+        const prev = seq[seq.length-1];
+        const opts = pool.filter(m => m !== prev && Math.abs(m - prev) <= maxJ && !seq.includes(m));
+        if (!opts.length) break;
+        seq.push(choose(opts, opts.map(m => weightOf(prev, m))));
+      }
+      if (seq.length === n) return { type:'iv', key, notes:seq };
+    }
+    return null;
+  }
   function candidates(){
     const out = [];
     const notes = notePool();
@@ -440,15 +559,18 @@
     return out;
   }
   function keyFor(it){
+    if (it.type === 'iv') return 'grp' + it.notes.join('-');
     if (it.type === 'chord') return `ch${it.root % 12}-${it.ch}`;
     return S.showOct ? String(it.m) : 'pc' + (it.m % 12);
   }
   function labelForKey(k){
+    if (k.startsWith('iv')) return k.slice(2);
     if (k.startsWith('ch')){ const [pc, ch] = k.slice(2).split('-'); return chordName(+pc, ch); }
     if (k.startsWith('pc')) return pcName(+k.slice(2));
     return pcName(+k % 12) + octOf(+k);
   }
   function pick(){
+    if (S.kind === 'iv') return pickIntervals();
     let list = candidates();
     if (!list.length) return null;
     const filtered = list.filter(it => keyFor(it) !== lastKey);
@@ -503,6 +625,11 @@
   function play(it){
     const a = ac(), t0 = a.currentTime + 0.03;
     if (it.type === 'note'){ tone(it.m, t0, 2.6); return 2.6; }
+    if (it.type === 'iv'){
+      const step = SPEED[S.speed] * 1.6, sh = shiftFor(Math.max(...it.notes));
+      it.notes.forEach((m, i) => tone(m, t0 + i*step, i === it.notes.length-1 ? 1.6 : step*1.4, 0.85, sh));
+      return (it.notes.length-1)*step + 1.6;
+    }
     const n = chordNotes(it), step = SPEED[S.speed];
     const sh = shiftFor(n[2]); // shift the whole chord together so the shape stays intact
     let seq = n;
@@ -565,21 +692,42 @@
         if (isRoot && (focusFret === null || f < focusFret)) focusFret = f;
       }});
     }
+    if (show && current.type === 'iv'){
+      strings.forEach((open,i)=>{ for (let f=0; f<=frets; f++){
+        const idx = current.notes.indexOf(open+f); if (idx < 0) continue;
+        dot(f, i, idx === 0 ? '#f2a33a' : '#5fb3a8', idx === 0 ? '#1a120b' : '#0d1a18', String(idx+1));
+        if (idx === 0 && (focusFret === null || f < focusFret)) focusFret = f;
+      }});
+    }
     s += '</svg>';
     const wrap = $('boardWrap'); wrap.innerHTML = s;
     drawStave();
     if (focusFret !== null) wrap.scrollLeft = Math.max(0, left + focusFret*fw - wrap.clientWidth/3);
 
-    $('legend').innerHTML = (current && current.type === 'chord')
+    const t = current ? current.type : (S.kind === 'iv' ? 'iv' : S.kind === 'chord' ? 'chord' : 'note');
+    $('legend').innerHTML = t === 'chord'
       ? '<span><i style="background:var(--accent)"></i>Root</span><span><i style="background:var(--tone)"></i>Chord tones (3rd, 5th)</span>'
+      : t === 'iv'
+      ? '<span><i style="background:var(--accent)"></i>First note</span><span><i style="background:var(--tone)"></i>Next notes, numbered in order</span>'
       : '<span><i style="background:var(--accent)"></i>Exact pitch</span><span><i style="background:#7a6a5a"></i>Same note, other octave</span>';
   }
 
   // ---------- UI flow ----------
   function setDisplay(){
     const el = $('noteName'), sub = $('sub');
-    if (!current || !revealed){ el.className = 'note hidden'; el.textContent = '?'; sub.textContent = current && current.type === 'chord' ? 'chord' : ''; return; }
-    if (current.type === 'note'){
+    if (!current || !revealed){
+      el.className = 'note hidden'; el.textContent = '?';
+      if (current && current.type === 'iv') sub.innerHTML = `${current.notes.length} notes · key of <b>${keyLabel(current.key)}</b>`;
+      else sub.textContent = current && current.type === 'chord' ? 'chord' : '';
+      return;
+    }
+    if (current.type === 'iv'){
+      const ivs = intervalsOf(current), sp = spelledItem(current);
+      el.className = 'note pop' + (ivs.length === 1 ? '' : ivs.length === 2 ? ' small' : ' xs');
+      el.innerHTML = ivs.map(v => `${v.short}<span class="dir">${v.up ? '↑' : '↓'}</span>`).join('<span class="gap"></span>');
+      sub.innerHTML = `<b>${sp.map(spellName).join(' – ')}</b> · degrees <b>${current.notes.map(m => degreeOf(m, current.key) + 1).join(' – ')}</b>`
+        + `<span class="long">${ivs.map(v => `${v.long} ${v.up ? 'up' : 'down'}`).join(', ')} · ${keyLabel(current.key)}</span>`;
+    } else if (current.type === 'note'){
       const n = pcName(current.m % 12);
       el.className = 'note pop' + (n.length > 3 ? ' mid' : '');
       el.innerHTML = n.replace('/', '<span style="color:var(--muted)">/</span>') + (S.showOct ? `<span class="octave">${octOf(current.m)}</span>` : '');
@@ -595,13 +743,13 @@
   }
   function newItem(){
     const it = pick();
-    if (!it){ $('hint').textContent = 'Nothing fits these settings — raise the highest fret or pick more chord types.'; return 0; }
+    if (!it){ $('hint').textContent = 'Nothing fits these settings — raise “Practise up to fret”, allow bigger jumps or pick more chord types.'; return 0; }
     current = it; lastKey = keyFor(it); revealed = false; hinted = false;
     const len = play(current);
     setDisplay(); drawBoard();
     $('btnReplay').disabled = false; $('btnReveal').disabled = false; $('btnHint').disabled = false;
     $('rowJudge').style.display = 'none';
-    const what = (S.stave === 'always' ? 'Read it on the stave — ' : '') + (current.type === 'chord' ? 'find the root, then play the arpeggio' : 'find it on the fretboard');
+    const what = (S.stave === 'always' ? 'Read it on the stave — ' : '') + (current.type === 'iv' ? 'name the interval between each note' : current.type === 'chord' ? 'find the root, then play the arpeggio' : 'find it on the fretboard');
     const whatCap = what[0].toUpperCase() + what.slice(1);
     $('hint').textContent = S.mode === 'auto' ? whatCap + '…' : whatCap + ', then tap Reveal.';
     return len;
@@ -615,11 +763,11 @@
     else $('hint').textContent = 'Next one shortly…';
   }
   function judge(ok){
-    const k = keyFor(current);
-    const r = stats.perNote[k] || {h:0,m:0};
-    if (ok){ stats.hit++; stats.streak++; stats.best = Math.max(stats.best, stats.streak); r.h++; }
-    else { stats.miss++; stats.streak = 0; r.m++; }
-    stats.perNote[k] = r;
+    if (ok){ stats.hit++; stats.streak++; stats.best = Math.max(stats.best, stats.streak); }
+    else { stats.miss++; stats.streak = 0; }
+    // intervals: track each interval in the round; everything else: the item itself
+    const keys = current.type === 'iv' ? [...new Set(intervalsOf(current).map(v => 'iv' + v.short))] : [keyFor(current)];
+    keys.forEach(k => { const r = stats.perNote[k] || {h:0,m:0}; ok ? r.h++ : r.m++; stats.perNote[k] = r; });
     store.set('bnf-stats', stats);
     renderStats(); newItem();
   }
@@ -630,7 +778,7 @@
     $('sStreak').textContent = stats.streak;
     $('sBest').textContent = stats.best;
     const weak = Object.entries(stats.perNote)
-      .filter(([k,r]) => r.m > 0 && (k.startsWith('ch') || (S.showOct ? !k.startsWith('pc') : k.startsWith('pc'))))
+      .filter(([k,r]) => r.m > 0 && (k.startsWith('iv') || k.startsWith('ch') || (S.showOct ? /^\d/.test(k) : k.startsWith('pc'))))
       .sort((a,b) => (b[1].m - b[1].h*0.5) - (a[1].m - a[1].h*0.5)).slice(0,12);
     $('weakList').innerHTML = weak.length
       ? weak.map(([k,r]) => `<span class="chip">${labelForKey(k)}<em>${r.m}✗</em></span>`).join('')
@@ -659,7 +807,7 @@
     autoTimer = setTimeout(() => {
       if (!autoRunning) return;
       reveal();
-      autoTimer = setTimeout(cycle, current.type === 'chord' ? Math.max(3000, len*1000 + 600) : 3000);
+      autoTimer = setTimeout(cycle, current.type !== 'note' ? Math.max(3000, len*1000 + 1200) : 3000);
     }, ms);
   }
   let wakeLock = null;
@@ -672,7 +820,7 @@
 
   // ---------- settings ----------
   function syncButtons(){
-    const noun = S.kind === 'chord' ? 'chord' : S.kind === 'mix' ? 'one' : 'note';
+    const noun = S.kind === 'chord' ? 'chord' : S.kind === 'mix' ? 'one' : S.kind === 'iv' ? 'notes' : 'note';
     $('btnNew').textContent = S.mode === 'auto' ? (autoRunning ? '■ Stop' : '▶ Start') : `▶ New ${noun}`;
   }
   function syncSettingsUI(){
@@ -686,7 +834,9 @@
     $('maxFret').max = S.bassFrets;
     if (S.maxFret > +S.bassFrets) S.maxFret = +S.bassFrets;
     $('maxFret').value = S.maxFret; $('fretVal').textContent = S.maxFret;
-    ['naturals','showOct','weighted'].forEach(k => $(k).checked = !!S[k]);
+    ['naturals','showOct','weighted','randKey','ivTonic'].forEach(k => $(k).checked = !!S[k]);
+    $('keyGrid').innerHTML = KEYS[S.scale].map((n, i) => `<button data-v="${i}" class="${+S.keyIdx === i ? 'on' : ''}">${n}${S.scale === 'minor' ? 'm' : ''}</button>`).join('');
+    $('keyGrid').classList.toggle('off', !!S.randKey);
     $('autoFields').style.display = S.mode === 'auto' ? '' : 'none';
     $('btnHint').style.display = S.stave === 'hint' ? '' : 'none';
     syncButtons();
@@ -710,7 +860,10 @@
   $('kindBar').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b || S.kind === b.dataset.v) return;
     S.kind = b.dataset.v; saveSettings(true);
-    if (!autoRunning) $('hint').textContent = S.kind === 'note' ? 'Tap “New note”, listen, then find it on your bass.' : 'Listen to the arpeggio, find the root, then play the chord tones.';
+    if (!autoRunning) $('hint').textContent =
+      S.kind === 'note' ? 'Tap “New note”, listen, then find it on your bass.'
+      : S.kind === 'iv' ? `Tap “New notes” and name the intervals. Key and scale are in Settings.`
+      : 'Listen to the arpeggio, find the root, then play the chord tones.';
   });
   $('chordTypes').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
@@ -721,7 +874,11 @@
   });
   $('think').addEventListener('input', e => { S.think = +e.target.value; saveSettings(false); });
   $('maxFret').addEventListener('input', e => { S.maxFret = +e.target.value; saveSettings(true); });
-  ['naturals','showOct','weighted'].forEach(k => $(k).addEventListener('change', e => { S[k] = e.target.checked; saveSettings(false); }));
+  ['naturals','showOct','weighted','randKey','ivTonic'].forEach(k => $(k).addEventListener('change', e => { S[k] = e.target.checked; saveSettings(false); }));
+  $('keyGrid').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    S.keyIdx = +b.dataset.v; saveSettings(current && current.type === 'iv');
+  });
   $('resetStats').addEventListener('click', () => { stats = { hit:0, miss:0, streak:0, best:0, perNote:{} }; store.set('bnf-stats', stats); renderStats(); });
 
   const openSheet = o => { $('sheet').classList.toggle('open', o); $('sheetBg').classList.toggle('open', o); };

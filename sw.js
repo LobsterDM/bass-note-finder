@@ -1,6 +1,6 @@
 // Offline support for Bass Note Finder.
 // Bump VERSION whenever you upload changed files, so phones pick up the new copy.
-const VERSION = 'bnf-v2';
+const VERSION = 'bnf-v3';
 
 const FILES = [
   './',
