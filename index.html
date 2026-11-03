@@ -1085,7 +1085,7 @@
     if (S.mode === 'auto') (autoRunning ? stopAuto() : startAuto()); else newItem();
   };
   $('btnReplay').onclick = () => { if (current) play(current); };
-  $('btnReveal').onclick = reveal;
+  $('btnReveal').onclick = () => reveal();
   function hint(){
     if (!current || revealed || hinted || S.stave !== 'hint') return;
     hinted = true; $('btnHint').disabled = true;
