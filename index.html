@@ -382,7 +382,7 @@
   // ---------- version ----------
   // The ONE place to bump when releasing changes. It's shown next to the title and also
   // names the offline cache (sw.js reads it from its URL), so installed copies update.
-  const APP_VERSION = 7;
+  const APP_VERSION = 8;
 
   // ---------- constants ----------
   const SHARP = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
@@ -720,13 +720,16 @@
     const mk = (type, freq, gain) => { const o = a.createOscillator(); o.type = type; o.frequency.value = freq; const g = a.createGain(); g.gain.value = gain; o.connect(g).connect(lp); o.start(t); o.stop(t+dur+0.05); };
     mk('sawtooth', f, 0.32); mk('sine', f, 0.7); mk('triangle', f*2, 0.18); // octave partial helps small speakers
     lp.connect(out).connect(master);
+    L.sched.push({ start: performance.now() + (t - a.currentTime)*1000, dur: dur*1000, level });
   }
   function chordNotes(it){ return CHORDS[it.ch].iv.map(i => it.root + i); }
   // returns playback length in seconds
-  // Play, and stop the microphone hearing the app's own sound until it has died away.
+  // Play a sound. Listening knows the shape of it (L.sched) and ignores the mic only while the
+  // app's own sound could still be louder than the player.
   function play(it){
+    if (isFinite(L.spkPlay)) L.spk = L.spkPlay;   // remember the last measurement
+    L.spkPlay = Infinity;
     const len = playSound(it);
-    L.muteUntil = performance.now() + len*1000 + 350;
     return len;
   }
   function playSound(it){
@@ -1068,7 +1071,23 @@
   }
 
   let mic = null, autoNext = null;
-  const L = { idx:0, solved:false, wrong:0, lastFired:null, hist:[], silent:0, prevRms:0, muteUntil:0 };
+  const L = { idx:0, solved:false, wrong:0, lastFired:null, hist:[], silent:0, prevRms:0, stable:null,
+              sched:[], spk:0.6, spkPlay:Infinity };   // spk = mic level per unit of app volume (measured)
+
+  // Expected loudness (0..~1) of the app's own sound at time `now`, following each tone's envelope.
+  function appEnv(now){
+    let e = 0;
+    for (const s of L.sched){
+      const dt = (now - s.start)/1000, dur = s.dur/1000;
+      if (dt < 0 || dt > dur) continue;
+      const a = 0.008, d = Math.min(0.35, dur*0.5), lv = s.level;
+      if (dt < a) e += lv * dt / a;
+      else if (dt < d) e += lv * Math.pow(0.4, (dt - a)/(d - a));
+      else { const g0 = lv*0.4; e += g0 * Math.pow(0.0001/g0, (dt - d)/(dur - d)); }
+    }
+    return e;
+  }
+
 
   async function startMic(){
     if (mic) return true;
@@ -1114,7 +1133,7 @@
 
   function resetListen(){
     clearTimeout(autoNext);
-    Object.assign(L, { idx:0, solved:false, wrong:0, lastFired:null, hist:[] });
+    Object.assign(L, { idx:0, solved:false, wrong:0, lastFired:L.stable });
     $('stage').classList.remove('correct');
     renderSteps();
     if (mic) setHeard('Listening…', '');
@@ -1129,9 +1148,15 @@
     mic.an.getFloatTimeDomainData(mic.buf);
     const { rms, f } = detectPitch(mic.buf, ctx.sampleRate);
     $('lvl').style.width = Math.min(100, rms * 500) + '%';
-    if (performance.now() < L.muteUntil){ L.hist = []; L.lastFired = null; L.prevRms = rms; return; }
-    if (rms < 0.008){
-      if (++L.silent >= 3) L.lastFired = null;        // a gap lets the same note count again
+    const now = performance.now();
+    L.sched = L.sched.filter(x => now < x.start + x.dur + 600);
+    // max over the last ~0.4 s covers speaker latency and the analysis window
+    const env = Math.max(appEnv(now), appEnv(now - 120), appEnv(now - 250), appEnv(now - 400));
+    if (env > 0.2 && rms > 0.002) L.spkPlay = Math.min(L.spkPlay, rms / env);   // quietest = speaker alone
+    const spk = isFinite(L.spkPlay) ? L.spkPlay : L.spk;
+    const gate = Math.max(0.008, spk * env * 2.5);   // the player has to be clearly louder than the app
+    if (rms < gate){
+      if (env < 0.0005 && ++L.silent >= 3) L.lastFired = null;   // a real gap lets the same note count again
       L.hist.push(null);
     } else {
       L.silent = 0;
@@ -1144,6 +1169,7 @@
     const counts = {};
     L.hist.forEach(m => { if (m != null) counts[m] = (counts[m] || 0) + 1; });
     const stable = Object.keys(counts).find(m => counts[m] >= 4);
+    if (stable != null) L.stable = +stable; else if (L.hist.every(m => m == null)) L.stable = null;
     if (stable != null && +stable !== L.lastFired){ L.lastFired = +stable; onHeard(+stable); }
   }
 
