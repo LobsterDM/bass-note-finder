@@ -34,7 +34,7 @@ No build step. Upload everything (including the hidden `.htaccess`) to your web 
 - **Shared hosting (Apache):** upload via FTP/file manager. `.htaccess` handles HTTPS and caching.
 - **Netlify / Cloudflare Pages / GitHub Pages:** point it at this repo's root. `.htaccess` is ignored there and isn't needed.
 
-**When you change anything:** bump `VERSION` in `sw.js` (e.g. `bnf-v2`) so installed copies fetch the new files. If you add files, add them to the `FILES` list too.
+**When you change anything:** bump `APP_VERSION` near the top of the script in `index.html`. That one number is shown next to the title, names the offline cache (`sw.js` is registered as `sw.js?v=<APP_VERSION>`), and lets open copies of the app show a "vN available" tag. If you add files, add them to the `FILES` list in `sw.js` too.
 
 **Social previews:** some platforms need an absolute image URL. Once the domain is known, change `og:image` in `index.html` to `https://yourdomain/og-image.png` and add a `<link rel="canonical">`.
 

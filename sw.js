@@ -1,6 +1,7 @@
 // Offline support for Bass Note Finder.
-// Bump VERSION whenever you upload changed files, so phones pick up the new copy.
-const VERSION = 'bnf-v6';
+// The cache version comes from APP_VERSION in index.html, which registers this file as
+// sw.js?v=<APP_VERSION>. Bump APP_VERSION there when releasing; nothing to change here.
+const VERSION = 'bnf-v' + (new URL(self.location).searchParams.get('v') || '0');
 
 const FILES = [
   './',
