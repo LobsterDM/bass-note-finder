@@ -382,7 +382,7 @@
   // ---------- version ----------
   // The ONE place to bump when releasing changes. It's shown next to the title and also
   // names the offline cache (sw.js reads it from its URL), so installed copies update.
-  const APP_VERSION = 8;
+  const APP_VERSION = 9;
 
   // ---------- constants ----------
   const SHARP = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
@@ -724,11 +724,11 @@
   }
   function chordNotes(it){ return CHORDS[it.ch].iv.map(i => it.root + i); }
   // returns playback length in seconds
-  // Play a sound. Listening knows the shape of it (L.sched) and ignores the mic only while the
-  // app's own sound could still be louder than the player.
+  // Play a sound. Listening knows when each tone starts and ends (L.sched): it ignores the mic
+  // during each tone's attack, and while the tone is fading it only accepts a fresh pluck.
   function play(it){
-    if (isFinite(L.spkPlay)) L.spk = L.spkPlay;   // remember the last measurement
-    L.spkPlay = Infinity;
+    // watch for the app's own sound arriving at the mic, to learn the speaker→mic delay
+    L.probe = { start: performance.now(), base: Math.max(0.004, L.lastRms || 0) };
     const len = playSound(it);
     return len;
   }
@@ -1071,23 +1071,9 @@
   }
 
   let mic = null, autoNext = null;
-  const L = { idx:0, solved:false, wrong:0, lastFired:null, hist:[], silent:0, prevRms:0, stable:null,
-              sched:[], spk:0.6, spkPlay:Infinity };   // spk = mic level per unit of app volume (measured)
-
-  // Expected loudness (0..~1) of the app's own sound at time `now`, following each tone's envelope.
-  function appEnv(now){
-    let e = 0;
-    for (const s of L.sched){
-      const dt = (now - s.start)/1000, dur = s.dur/1000;
-      if (dt < 0 || dt > dur) continue;
-      const a = 0.008, d = Math.min(0.35, dur*0.5), lv = s.level;
-      if (dt < a) e += lv * dt / a;
-      else if (dt < d) e += lv * Math.pow(0.4, (dt - a)/(d - a));
-      else { const g0 = lv*0.4; e += g0 * Math.pow(0.0001/g0, (dt - d)/(dur - d)); }
-    }
-    return e;
-  }
-
+  const L = { idx:0, solved:false, wrong:0, lastFired:null, hist:[], silent:0, stable:null,
+              sched:[], lat:300, probe:null, lastRms:0, levels:[], armed:false };
+  // lat = measured delay (ms) from the app starting a tone to it reaching the mic (speaker + mic latency)
 
   async function startMic(){
     if (mic) return true;
@@ -1149,21 +1135,41 @@
     const { rms, f } = detectPitch(mic.buf, ctx.sampleRate);
     $('lvl').style.width = Math.min(100, rms * 500) + '%';
     const now = performance.now();
-    L.sched = L.sched.filter(x => now < x.start + x.dur + 600);
-    // max over the last ~0.4 s covers speaker latency and the analysis window
-    const env = Math.max(appEnv(now), appEnv(now - 120), appEnv(now - 250), appEnv(now - 400));
-    if (env > 0.2 && rms > 0.002) L.spkPlay = Math.min(L.spkPlay, rms / env);   // quietest = speaker alone
-    const spk = isFinite(L.spkPlay) ? L.spkPlay : L.spk;
-    const gate = Math.max(0.008, spk * env * 2.5);   // the player has to be clearly louder than the app
-    if (rms < gate){
-      if (env < 0.0005 && ++L.silent >= 3) L.lastFired = null;   // a real gap lets the same note count again
+    L.sched = L.sched.filter(x => now < x.start + x.dur + 2000);
+
+    // learn the speaker→mic delay: first clear jump in level after the app starts a sound
+    if (L.probe){
+      const dt = now - L.probe.start;
+      if (dt > 1500) L.probe = null;
+      else if (rms > Math.max(0.012, L.probe.base * 3)){
+        const measured = Math.max(0, dt - 40);
+        L.lat = Math.min(1200, Math.max(120, L.lat*0.5 + measured*0.5));
+        L.probe = null;
+      }
+    }
+
+    // fresh pluck = level jumps well above its recent minimum (a fading note only ever gets quieter)
+    L.levels.push(rms); if (L.levels.length > 4) L.levels.shift();
+    const recentMin = L.levels.length > 1 ? Math.min(...L.levels.slice(0, -1)) : rms;
+    const onset = rms > 0.01 && rms > recentMin * 1.6 && rms - recentMin > 0.006;
+    L.lastRms = rms;
+
+    // 1) the app's own attack (plus delay): ignore the mic entirely
+    const inAttack = L.sched.some(x => now >= x.start - 50 && now < x.start + 450 + L.lat);
+    if (inAttack){ L.armed = false; L.hist = []; return; }
+    // 2) the app's note is still fading: only a fresh pluck counts
+    const inTail = L.sched.some(x => now < x.start + x.dur + L.lat + 300);
+    if (onset){ L.armed = true; L.lastFired = null; L.hist = []; }
+    if (inTail && !L.armed){ L.hist.push(null); if (L.hist.length > 5) L.hist.shift(); return; }
+
+    // 3) normal listening
+    if (rms < 0.008){
+      if (!inTail && ++L.silent >= 3) L.lastFired = null;   // a real gap lets the same note count again
       L.hist.push(null);
     } else {
       L.silent = 0;
-      if (L.prevRms > 0 && rms > L.prevRms * 2.5){ L.lastFired = null; L.hist = []; }  // new pluck
       L.hist.push(f ? Math.round(69 + 12 * Math.log2(f / 440)) : null);
     }
-    L.prevRms = rms;
     if (L.hist.length > 5) L.hist.shift();
     // a note counts once it's been steady for ~200 ms (4 of the last 5 readings)
     const counts = {};
