@@ -12,7 +12,7 @@ A single-page ear-training app for bass guitar. It plays a random note or chord 
 - **Stave notation.** The note or chord is shown in bass clef, written an octave above sounding pitch (standard bass notation), with 8va for high notes and correct chord spelling. The stave can be off, hidden behind a 💡 Hint button (tap to see the note in notation before revealing the answer), or shown straight away for reading practice.
 - **4- or 5-string**, 20–24 fret basses, adjustable practice range, natural notes only, sharp/flat/both naming.
 - **Playback pitch.** Play at true bass pitch, or 1 or 2 octaves up for phone speakers. Notes that would sound above the top of your bass drop an octave so they are always playable.
-- **Scoring.** Tracks score, streak and the notes/chords you miss most. Missed items can be weighted to come up more often. Score and settings are saved in `localStorage`.
+- **Scoring and smart repetition.** Tracks score, streak and average tries per note, chord and interval. A simple spaced-repetition scheduler (Leitner-style boxes) uses the number of attempts each round took (wrong notes heard while listening, hints, extra replays, misses) to decide when an item returns: struggled-with items come back within 3–4 rounds, first-time successes are spaced out progressively further (8 → 16 → 30 → 60 → 120 rounds). Everything is saved in `localStorage`.
 
 ## Files
 

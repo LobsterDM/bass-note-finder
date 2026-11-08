@@ -48,6 +48,11 @@
   .modebar button{flex:1;background:none;border:none;color:var(--muted);font:inherit;font-size:15px;font-weight:500;padding:10px 4px;border-radius:10px}
   .modebar button.on{background:var(--panel2);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)}
   .hbtns{display:flex;gap:6px}
+  .feedback{font-size:13px;color:var(--muted);margin-top:12px;min-height:18px}
+  .feedback:empty{display:none}
+  .feedback.g0,.feedback.g1{color:#f0a487}
+  .feedback.g2{color:var(--text)}
+  .feedback.g3{color:var(--good)}
   #micBtn.on{background:var(--good);border-color:var(--good);color:#0f1a0f;font-weight:700}
   .listen{display:none;align-items:center;justify-content:center;gap:10px;margin-top:10px;padding:8px 12px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--muted)}
   .listen.on{display:flex}
@@ -183,6 +188,7 @@
       <button class="btn bad" id="btnMiss">✗ Missed</button>
       <button class="btn good" id="btnGot">✓ Got it</button>
     </div>
+    <div class="feedback" id="feedback"></div>
   </div>
 
   <div class="stave-card" id="staveCard"><div id="stave"></div><div class="cap">Bass clef · bass music is written an octave above how it sounds</div></div>
@@ -191,7 +197,7 @@
   <div class="legend" id="legend"></div>
 
   <div class="card">
-    <h2>Trickiest so far</h2>
+    <h2>Trickiest so far <span id="dueCount" style="text-transform:none;letter-spacing:0;color:var(--accent)"></span></h2>
     <div class="weak" id="weakList"></div>
   </div>
 
@@ -206,7 +212,7 @@
     </ol>
     <p><b>Intervals mode</b> plays 2–4 notes from a key you choose. Name the interval between each pair (e.g. major 3rd up, perfect 4th down), then reveal the notes, their scale degrees and where they sit on the neck.</p>
     <p><b>Listening:</b> tap 🎤 and the app listens through your microphone. Play the note (or the chord or interval notes in order) and it marks you right automatically and moves on.</p>
-    <p>Hands-free mode does all of this on a timer so you can keep both hands on the instrument. Notes you miss come back more often.</p>
+    <p>Hands-free mode does all of this on a timer so you can keep both hands on the instrument. With smart repetition on, anything that takes you several tries (or a hint) comes back within a few rounds, and the ones you get first time come back less and less often, so practice time goes where you need it.</p>
     <p><b>Install it:</b> on iPhone tap Share → Add to Home Screen; on Android open the browser menu → Install app. Once installed it works offline. Your score and settings stay on your device.</p>
   </details>
 </div>
@@ -359,7 +365,7 @@
     <div class="field">
       <div class="toggle"><div>Natural notes only<small>No sharps or flats (applies to chord roots too)</small></div><label class="sw"><input type="checkbox" id="naturals"><span></span></label></div>
       <div class="toggle"><div>Exact octave counts<small>Single notes: reveal tells you which octave to aim for</small></div><label class="sw"><input type="checkbox" id="showOct"><span></span></label></div>
-      <div class="toggle"><div>Practise weak spots more<small>Notes and chords you miss come up more often</small></div><label class="sw"><input type="checkbox" id="weighted"><span></span></label></div>
+      <div class="toggle"><div>Smart repetition<small>Anything that takes several tries, a hint or replays comes back within a few rounds. Ones you get first time come back less and less often.</small></div><label class="sw"><input type="checkbox" id="weighted"><span></span></label></div>
     </div>
 
     <div class="field">
@@ -397,6 +403,7 @@
   };
   Object.assign(S, store.get('bnf-settings') || {});
   Object.assign(stats, store.get('bnf-stats') || {});
+  if (!stats.srs || typeof stats.srs.round !== 'number') stats.srs = { round:0, items:{} };
   if (S.stave === 'reveal') S.stave = 'hint'; // older saved setting
   if (!Array.isArray(S.chordTypes) || !S.chordTypes.length) S.chordTypes = [...defaults.chordTypes];
 
@@ -586,7 +593,7 @@
     return out;
   }
   function keyFor(it){
-    if (it.type === 'iv') return 'grp' + it.notes.join('-');
+    if (it.type === 'iv') return `grp${it.key.scale}${it.key.idx}:${it.notes.join('-')}`;
     if (it.type === 'chord') return `ch${it.root % 12}-${it.ch}`;
     return S.showOct ? String(it.m) : 'pc' + (it.m % 12);
   }
@@ -596,7 +603,61 @@
     if (k.startsWith('pc')) return pcName(+k.slice(2));
     return pcName(+k % 12) + octOf(+k);
   }
+  // ---------- smart repetition ----------
+  // Every note/chord/interval round you've played has a "box" (0 = still learning … 5 = solid)
+  // and a round number when it's next due. Few tries → bigger gap; many tries → back in a few rounds.
+  const GAPS = [3, 8, 16, 30, 60, 120];
+  let replays = 0;
+  function triesThisRound(){ return L.wrong + (hinted ? 2 : 0) + Math.max(0, replays - 1); }
+  function gradeRound(ok){
+    if (!ok) return 0;                       // missed / ran out of time
+    const t = triesThisRound();
+    return t >= 3 ? 1 : t >= 1 ? 2 : 3;      // hard / took a couple / first time
+  }
+  function schedule(ok){
+    const srs = stats.srs, R = srs.round, k = keyFor(current), g = gradeRound(ok);
+    const e = srs.items[k] || { box:0, due:0, seen:0 };
+    if (g === 0){ e.box = 0; e.due = R + 3; }
+    else if (g === 1){ e.box = Math.max(0, e.box - 1); e.due = R + 4; }
+    else if (g === 2){ e.due = R + 5 + e.box*2; }
+    else { e.box = Math.min(5, e.box + 1); e.due = R + GAPS[e.box]; }
+    e.seen++; e.last = g;
+    if (current.type === 'iv') e.item = { scale:current.key.scale, idx:current.key.idx, notes:current.notes.slice() };
+    srs.items[k] = e;
+    const ks = Object.keys(srs.items);        // keep storage small: drop the best-known first
+    if (ks.length > 400) ks.sort((a,b) => srs.items[b].box - srs.items[a].box || srs.items[b].due - srs.items[a].due)
+                           .slice(0, ks.length - 400).forEach(x => delete srs.items[x]);
+    return g;
+  }
+  // Rebuild a playable item from its stored key, if it fits the current settings.
+  function itemFromKey(k, e){
+    if (k.startsWith('grp')){
+      if (S.kind !== 'iv' || !e.item || e.item.notes.length !== +S.ivCount) return null;
+      if (!S.randKey && (e.item.scale !== S.scale || e.item.idx !== +S.keyIdx)) return null;
+      const top = Math.max(...TUNING[S.strings]) + S.maxFret, low = Math.min(...TUNING[S.strings]);
+      if (e.item.notes.some(m => m < low || m > top)) return null;
+      return { type:'iv', key:keyInfo(e.item.scale, e.item.idx), notes:e.item.notes.slice() };
+    }
+    if (S.kind === 'iv') return null;
+    const opts = candidates().filter(it => keyFor(it) === k);
+    return opts.length ? opts[Math.floor(Math.random()*opts.length)] : null;
+  }
+  function dueItem(){
+    if (!S.weighted) return null;
+    const R = stats.srs.round; let best = null;
+    for (const [k, e] of Object.entries(stats.srs.items)){
+      if (e.due > R || k === lastKey) continue;
+      const score = (R - e.due) + (5 - e.box)*3 + Math.random();   // weakest and most overdue first
+      if (best && score <= best.score) continue;
+      const it = itemFromKey(k, e);
+      if (it) best = { it, score };
+    }
+    return best && Math.random() < 0.7 ? best.it : null;            // leave room for fresh ones
+  }
+
   function pick(){
+    const due = dueItem();
+    if (due) return due;
     if (S.kind === 'iv') return pickIntervals();
     let list = candidates();
     if (!list.length) return null;
@@ -605,8 +666,10 @@
     // In mixed mode, give notes and chords roughly equal airtime
     let w = list.map(it => (S.kind === 'mix' ? (it.type === 'chord' ? 1/Math.max(1,S.chordTypes.length) : 1) : 1));
     if (S.weighted) w = w.map((x,i) => {
-      const r = stats.perNote[keyFor(list[i])] || {h:0,m:0};
-      return x * Math.max(1, 1 + r.m*2 - r.h*0.5);
+      const e = stats.srs.items[keyFor(list[i])];
+      if (!e) return x * 1.5;                                  // not met yet
+      if (e.due <= stats.srs.round + 2) return x * 2;          // nearly due
+      return x / (1 + e.box);                                  // well known → rarer
     });
     let t = Math.random() * w.reduce((a,b)=>a+b,0);
     for (let i=0;i<list.length;i++){ t -= w[i]; if (t<=0) return list[i]; }
@@ -775,6 +838,7 @@
     setTimeout(()=>el.classList.remove('pop'), 250);
   }
   function newItem(){
+    stats.srs.round++; replays = 0;
     const it = pick();
     if (!it){ $('hint').textContent = 'Nothing fits these settings — raise “Practise up to fret”, allow bigger jumps or pick more chord types.'; return 0; }
     current = it; lastKey = keyFor(it); revealed = false; hinted = false;
@@ -803,13 +867,34 @@
   }
   function judge(ok){ record(ok); newItem(); }
   function record(ok){
+    if (!current) return;
     if (ok){ stats.hit++; stats.streak++; stats.best = Math.max(stats.best, stats.streak); }
     else { stats.miss++; stats.streak = 0; }
+    const tries = triesThisRound() + 1;   // attempts including the right one
     // intervals: track each interval in the round; everything else: the item itself
     const keys = current.type === 'iv' ? [...new Set(intervalsOf(current).map(v => 'iv' + v.short))] : [keyFor(current)];
-    keys.forEach(k => { const r = stats.perNote[k] || {h:0,m:0}; ok ? r.h++ : r.m++; stats.perNote[k] = r; });
+    keys.forEach(k => {
+      const r = stats.perNote[k] || {h:0,m:0};
+      ok ? r.h++ : r.m++; r.n = (r.n || 0) + 1; r.t = (r.t || 0) + (ok ? tries : 4);
+      stats.perNote[k] = r;
+    });
+    const g = schedule(ok);
     store.set('bnf-stats', stats);
     renderStats();
+    showFeedback(g, tries);
+  }
+  function showFeedback(g, tries){
+    const what = current.type === 'iv' ? 'this one' : current.type === 'chord' ? 'this chord' : 'this note';
+    const t = mic && g > 0 ? `${tries} ${tries === 1 ? 'try' : 'tries'} — ` : '';
+    const msg = [
+      `↺ Missed — ${what} will come back in a couple of rounds.`,
+      `↺ ${t || 'Needed help — '}${what} will come back again soon.`,
+      `✓ ${t || 'Got there — '}you’ll see ${what} again shortly.`,
+      `★ ${mic ? 'First try' : 'Nice'} — ${what} will come back less often now.`
+    ][g];
+    const el = $('feedback');
+    el.textContent = S.weighted ? msg : '';
+    el.className = 'feedback g' + g;
   }
   function renderStats(){
     const tot = stats.hit + stats.miss;
@@ -817,12 +902,17 @@
     $('sPct').textContent = tot ? Math.round(stats.hit/tot*100) + '%' : '–';
     $('sStreak').textContent = stats.streak;
     $('sBest').textContent = stats.best;
+    // average attempts per round (a miss counts as 4); older data without tries falls back to misses
+    const avg = r => r.n ? r.t / r.n : 1 + r.m*3 / Math.max(1, r.h + r.m);
     const weak = Object.entries(stats.perNote)
-      .filter(([k,r]) => r.m > 0 && (k.startsWith('iv') || k.startsWith('ch') || (S.showOct ? /^\d/.test(k) : k.startsWith('pc'))))
-      .sort((a,b) => (b[1].m - b[1].h*0.5) - (a[1].m - a[1].h*0.5)).slice(0,12);
+      .filter(([k,r]) => (r.m > 0 || avg(r) >= 1.5) && (k.startsWith('iv') || k.startsWith('ch') || (S.showOct ? /^\d/.test(k) : k.startsWith('pc'))))
+      .sort((a,b) => avg(b[1]) - avg(a[1])).slice(0,12);
     $('weakList').innerHTML = weak.length
-      ? weak.map(([k,r]) => `<span class="chip">${labelForKey(k)}<em>${r.m}✗</em></span>`).join('')
-      : '<span class="empty">Mark a few as missed and they’ll show up here.</span>';
+      ? weak.map(([k,r]) => `<span class="chip">${labelForKey(k)}<em>${avg(r).toFixed(1)} tries</em></span>`).join('')
+      : '<span class="empty">Anything that takes a few tries will show up here.</span>';
+    const R = stats.srs.round;
+    const soon = Object.values(stats.srs.items).filter(e => e.box <= 1 && e.last < 3 && e.due <= R + 4).length;
+    $('dueCount').textContent = S.weighted && soon ? `· ${soon} coming back soon` : '';
   }
 
   // ---------- hands-free loop ----------
@@ -920,7 +1010,7 @@
     const b = e.target.closest('button'); if (!b) return;
     S.keyIdx = +b.dataset.v; saveSettings(current && current.type === 'iv');
   });
-  $('resetStats').addEventListener('click', () => { stats = { hit:0, miss:0, streak:0, best:0, perNote:{} }; store.set('bnf-stats', stats); renderStats(); });
+  $('resetStats').addEventListener('click', () => { stats = { hit:0, miss:0, streak:0, best:0, perNote:{}, srs:{ round:0, items:{} } }; store.set('bnf-stats', stats); renderStats(); $('feedback').textContent = ''; });
 
   const openSheet = o => { $('sheet').classList.toggle('open', o); $('sheetBg').classList.toggle('open', o); };
   $('openSettings').onclick = () => openSheet(true);
@@ -960,7 +1050,7 @@
   }
 
   let mic = null, autoNext = null;
-  const L = { idx:0, solved:false, lastFired:null, hist:[], silent:0, prevRms:0, muteUntil:0 };
+  const L = { idx:0, solved:false, wrong:0, lastFired:null, hist:[], silent:0, prevRms:0, muteUntil:0 };
 
   async function startMic(){
     if (mic) return true;
@@ -1006,7 +1096,7 @@
 
   function resetListen(){
     clearTimeout(autoNext);
-    Object.assign(L, { idx:0, solved:false, lastFired:null, hist:[] });
+    Object.assign(L, { idx:0, solved:false, wrong:0, lastFired:null, hist:[] });
     $('stage').classList.remove('correct');
     renderSteps();
     if (mic) setHeard('Listening…', '');
@@ -1050,6 +1140,7 @@
     } else if (L.idx > 0 && matches(m, tg[L.idx - 1])){
       setHeard(`✓ ${name} — now the next note`, 'ok');   // previous note still ringing
     } else {
+      L.wrong++;
       setHeard(`${name} — not quite, try again`, 'bad');
     }
   }
@@ -1084,7 +1175,7 @@
     if (S.listen && !mic) await startMic();
     if (S.mode === 'auto') (autoRunning ? stopAuto() : startAuto()); else newItem();
   };
-  $('btnReplay').onclick = () => { if (current) play(current); };
+  $('btnReplay').onclick = () => { if (current){ if (!revealed) replays++; play(current); } };
   $('btnReveal').onclick = () => reveal();
   function hint(){
     if (!current || revealed || hinted || S.stave !== 'hint') return;
