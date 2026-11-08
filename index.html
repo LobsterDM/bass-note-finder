@@ -434,7 +434,7 @@
   // ---------- version ----------
   // The ONE place to bump when releasing changes. It's shown next to the title and also
   // names the offline cache (sw.js reads it from its URL), so installed copies update.
-  const APP_VERSION = 10;
+  const APP_VERSION = 11;
 
   // ---------- constants ----------
   const SHARP = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
@@ -670,13 +670,14 @@
   function pickRiff(){
     let list = enabledRiffs().filter(r => riffShift(r) !== null);
     if (!list.length) return null;
-    if (list.length > 1) list = list.filter(r => !String(lastKey).startsWith(`riff${r.id}@`)) ;
+    const notRecent = list.filter(r => !recent.some(k => k.startsWith(`riff${r.id}@`)));
+    if (notRecent.length) list = notRecent;
     const w = list.map(r => {
       if (!S.weighted) return 1;
       const e = Object.entries(stats.srs.items).filter(([k]) => k.startsWith(`riff${r.id}@`)).map(([,v]) => v);
-      if (!e.length) return 1.5;
+      if (!e.length) return 3;                       // not heard yet: bring new tunes in
       const box = Math.min(...e.map(v => v.box));
-      return box === 0 ? 2 : 1 / (1 + box);
+      return box === 0 ? 1.5 : 1 / (1 + box);
     });
     let t = Math.random() * w.reduce((a,b)=>a+b,0), r = list[list.length-1];
     for (let i=0;i<list.length;i++){ t -= w[i]; if (t<=0){ r = list[i]; break; } }
@@ -753,11 +754,16 @@
   // and a round number when it's next due. Few tries → bigger gap; many tries → back in a few rounds.
   const GAPS = [3, 8, 16, 30, 60, 120];
   const REPEAT_AT = 4, MAX_REPEATS = 3;   // 4+ attempts (or a miss) → play the same one again straight away
-  let replays = 0, repeatNext = null, repeatRun = 0;
+  let replays = 0, repeatNext = null, repeatRun = 0, recent = [];   // recent = keys of the last few rounds
   function triesThisRound(){ return L.wrong + (hinted ? 2 : 0) + Math.max(0, replays - 1); }
+  // For scheduling, wrong notes in a long sequence count for less: one slip in a 5-note riff isn't a failed riff.
+  function effectiveTries(){
+    const n = current ? targets(current).length : 1;
+    return L.wrong / Math.max(1, (n - 1) / 2) + (hinted ? 2 : 0) + Math.max(0, replays - 1);
+  }
   function gradeRound(ok){
     if (!ok) return 0;                       // missed / ran out of time
-    const t = triesThisRound();
+    const t = effectiveTries();
     return t >= 3 ? 1 : t >= 1 ? 2 : 3;      // hard / took a couple / first time
   }
   function schedule(ok){
@@ -799,13 +805,13 @@
     if (!S.weighted) return null;
     const R = stats.srs.round; let best = null;
     for (const [k, e] of Object.entries(stats.srs.items)){
-      if (e.due > R || k === lastKey) continue;
+      if (e.due > R || recent.includes(k)) continue;   // nothing from the last 3 rounds
       const score = (R - e.due) + (5 - e.box)*3 + Math.random();   // weakest and most overdue first
       if (best && score <= best.score) continue;
       const it = itemFromKey(k, e);
       if (it) best = { it, score };
     }
-    return best && Math.random() < 0.7 ? best.it : null;            // leave room for fresh ones
+    return best && Math.random() < 0.5 ? best.it : null;            // at most half the rounds are reviews
   }
 
   function pick(){
@@ -1022,6 +1028,7 @@
     const it = pick();
     if (!it){ $('hint').textContent = 'Nothing fits these settings — raise “Practise up to fret”, allow bigger jumps or pick more chord types.'; return 0; }
     current = it; lastKey = keyFor(it); revealed = false; hinted = false;
+    recent = [lastKey, ...recent.filter(k => k !== lastKey)].slice(0, 3);
     resetListen();
     const len = play(current);
     setDisplay(); drawBoard();
@@ -1059,7 +1066,7 @@
       stats.perNote[k] = r;
     });
     const g = schedule(ok);
-    const again = S.weighted && (!ok || tries >= REPEAT_AT) && repeatRun < MAX_REPEATS;
+    const again = S.weighted && (!ok || effectiveTries() + 1 >= REPEAT_AT) && repeatRun < MAX_REPEATS;
     if (again){ repeatNext = { ...current }; repeatRun++; }
     store.set('bnf-stats', stats);
     renderStats();
@@ -1285,7 +1292,7 @@
 
   let mic = null, autoNext = null;
   const L = { idx:0, solved:false, wrong:0, lastFired:null, hist:[], silent:0, stable:null,
-              sched:[], lat:300, probe:null, lastRms:0, levels:[], armed:false };
+              sched:[], lat:300, probe:null, lastRms:0, levels:[], slevels:[], armed:false };
   // lat = measured delay (ms) from the app starting a tone to it reaching the mic (speaker + mic latency)
 
   async function startMic(){
@@ -1299,7 +1306,7 @@
       const stream = await navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:false, noiseSuppression:false, autoGainControl:false } });
       const src = a.createMediaStreamSource(stream);
       const an = a.createAnalyser(); an.fftSize = 4096; src.connect(an);
-      mic = { stream, an, buf:new Float32Array(an.fftSize), timer:setInterval(listenTick, 50) };
+      mic = { stream, an, buf:new Float32Array(an.fftSize), timer:setInterval(listenTick, 25) };   // 40 checks a second
       syncListenUI();
       return true;
     }catch(e){
@@ -1362,11 +1369,20 @@
     }
 
     // fresh pluck = level jumps well above its recent minimum (a fading note only ever gets quieter)
-    L.levels.push(rms); if (L.levels.length > 4) L.levels.shift();
+    L.levels.push(rms); if (L.levels.length > 7) L.levels.shift();   // ~150 ms of level history
     const recentMin = L.levels.length > 1 ? Math.min(...L.levels.slice(0, -1)) : rms;
     const onset = rms > 0.01 && rms > recentMin * 1.6 && rms - recentMin > 0.006;
-    // gentler test for re-plucking the same note (e.g. the two F♯s in Ode to Joy), only used once the app is quiet
-    const repluck = rms > 0.01 && rms > recentMin * 1.3 && rms - recentMin > 0.004;
+    // Re-plucking the same note (e.g. the two F♯s in Ode to Joy) is judged on the last ~40 ms only:
+    // the brief damp-then-attack of a fresh pluck shows up clearly there. Only used once the app is quiet.
+    let sq = 0; const b = mic.buf, n0 = b.length - 2048;
+    for (let i = n0; i < b.length; i++) sq += b[i]*b[i];
+    const shortRms = Math.sqrt(sq / 2048);
+    L.slevels.push(shortRms); if (L.slevels.length > 7) L.slevels.shift();
+    const sMin = L.slevels.length > 1 ? Math.min(...L.slevels.slice(0, -1)) : shortRms;
+    // when the next target is a repeat of the note just played, be extra sensitive to a fresh pluck
+    const tgs = current && !revealed && !L.solved ? targets(current) : null;
+    const wantRepeat = !!(tgs && L.idx > 0 && L.idx < tgs.length && tgs[L.idx] === tgs[L.idx - 1]);
+    const repluck = shortRms > 0.01 && shortRms > sMin * (wantRepeat ? 1.15 : 1.35) && shortRms - sMin > (wantRepeat ? 0.003 : 0.004);
     L.lastRms = rms;
 
     // 1) the app's own attack (plus delay): ignore the mic entirely
@@ -1376,31 +1392,46 @@
     const inTail = L.sched.some(x => now < x.start + x.dur + L.lat + 300);
     if (onset){ L.armed = true; L.lastFired = null; L.hist = []; }
     else if (!inTail && repluck){ L.lastFired = null; L.hist = []; }
-    if (inTail && !L.armed){ L.hist.push(null); if (L.hist.length > 5) L.hist.shift(); return; }
+    if (inTail && !L.armed){ L.hist.push(null); if (L.hist.length > 6) L.hist.shift(); return; }
 
     // 3) normal listening
     if (rms < 0.008){
-      if (!inTail && ++L.silent >= 3) L.lastFired = null;   // a real gap lets the same note count again
+      if (!inTail && ++L.silent >= 6) L.lastFired = null;   // a real gap (~150 ms) lets the same note count again
       L.hist.push(null);
     } else {
       L.silent = 0;
       L.hist.push(f ? Math.round(69 + 12 * Math.log2(f / 440)) : null);
     }
-    if (L.hist.length > 5) L.hist.shift();
-    // a note counts once it's been steady for ~200 ms (4 of the last 5 readings)
-    const counts = {};
-    L.hist.forEach(m => { if (m != null) counts[m] = (counts[m] || 0) + 1; });
-    const stable = Object.keys(counts).find(m => counts[m] >= 4);
-    if (stable != null) L.stable = +stable; else if (L.hist.every(m => m == null)) L.stable = null;
-    if (stable != null && +stable !== L.lastFired){ L.lastFired = +stable; onHeard(+stable); }
+    if (L.hist.length > 6) L.hist.shift();
+    // The note we're waiting for is accepted quickly: steady for ~75 ms (3 of the last 4 readings).
+    // Anything else must hold ~125 ms (5 of 6) before it's called wrong, so the blur between two
+    // quickly played notes isn't mistaken for a wrong note.
+    const steady = (arr, need) => {
+      const c = {}; arr.forEach(m => { if (m != null) c[m] = (c[m] || 0) + 1; });
+      const k = Object.keys(c).find(m => c[m] >= need); return k == null ? null : +k;
+    };
+    const quick = steady(L.hist.slice(-4), 3), sure = L.hist.length >= 6 ? steady(L.hist, 5) : null;
+    const stable = quick != null && isExpected(quick) ? quick : sure;
+    if (stable != null) L.stable = stable; else if (L.hist.every(m => m == null)) L.stable = null;
+    if (stable != null && stable !== L.lastFired){ L.lastFired = stable; onHeard(stable); }
   }
 
+  function isExpected(m){
+    if (!current || revealed || L.solved) return false;
+    const tg = targets(current);
+    return matches(m, tg[L.idx]) || (L.idx > 0 && matches(m, tg[L.idx - 1])) || skipsRepeat(m, tg);
+  }
+  // A quickly repeated note (F♯ F♯ …) is the easiest pluck to miss. If we're waiting on the
+  // repeat but the player has clearly moved to the note after it, give them the benefit of the doubt.
+  function skipsRepeat(m, tg){
+    return L.idx > 0 && L.idx + 1 < tg.length && tg[L.idx] === tg[L.idx - 1] && matches(m, tg[L.idx + 1]);
+  }
   function onHeard(m){
     const name = single(((m % 12) + 12) % 12) + (S.matchMode === 'exact' ? octOf(m) : '');
     if (!current || revealed || L.solved){ setHeard(`Heard ${name}`, ''); return; }
     const tg = targets(current);
-    if (matches(m, tg[L.idx])){
-      L.idx++; renderSteps();
+    if (matches(m, tg[L.idx]) || skipsRepeat(m, tg)){
+      L.idx += matches(m, tg[L.idx]) ? 1 : 2; renderSteps();
       if (L.idx >= tg.length){ setHeard(`✓ ${name} — correct!`, 'ok'); solved(); }
       else setHeard(`✓ ${name} — now the next note`, 'ok');
     } else if (L.idx > 0 && matches(m, tg[L.idx - 1])){
