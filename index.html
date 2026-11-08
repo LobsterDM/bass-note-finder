@@ -212,7 +212,7 @@
     </ol>
     <p><b>Intervals mode</b> plays 2–4 notes from a key you choose. Name the interval between each pair (e.g. major 3rd up, perfect 4th down), then reveal the notes, their scale degrees and where they sit on the neck.</p>
     <p><b>Listening:</b> tap 🎤 and the app listens through your microphone. Play the note (or the chord or interval notes in order) and it marks you right automatically and moves on.</p>
-    <p>Hands-free mode does all of this on a timer so you can keep both hands on the instrument. With smart repetition on, anything that takes you several tries (or a hint) comes back within a few rounds, and the ones you get first time come back less and less often, so practice time goes where you need it.</p>
+    <p>Hands-free mode does all of this on a timer so you can keep both hands on the instrument. With smart repetition on, anything that takes you 4 or more attempts (or a miss) plays again straight away so you can lock it in, anything that takes several tries comes back within a few rounds, and the ones you get first time come back less and less often, so practice time goes where you need it.</p>
     <p><b>Install it:</b> on iPhone tap Share → Add to Home Screen; on Android open the browser menu → Install app. Once installed it works offline. Your score and settings stay on your device.</p>
   </details>
 </div>
@@ -607,7 +607,8 @@
   // Every note/chord/interval round you've played has a "box" (0 = still learning … 5 = solid)
   // and a round number when it's next due. Few tries → bigger gap; many tries → back in a few rounds.
   const GAPS = [3, 8, 16, 30, 60, 120];
-  let replays = 0;
+  const REPEAT_AT = 4, MAX_REPEATS = 3;   // 4+ attempts (or a miss) → play the same one again straight away
+  let replays = 0, repeatNext = null, repeatRun = 0;
   function triesThisRound(){ return L.wrong + (hinted ? 2 : 0) + Math.max(0, replays - 1); }
   function gradeRound(ok){
     if (!ok) return 0;                       // missed / ran out of time
@@ -656,6 +657,8 @@
   }
 
   function pick(){
+    if (repeatNext){ const it = repeatNext; repeatNext = null; return it; }
+    repeatRun = 0;
     const due = dueItem();
     if (due) return due;
     if (S.kind === 'iv') return pickIntervals();
@@ -879,20 +882,27 @@
       stats.perNote[k] = r;
     });
     const g = schedule(ok);
+    const again = S.weighted && (!ok || tries >= REPEAT_AT) && repeatRun < MAX_REPEATS;
+    if (again){ repeatNext = { ...current }; repeatRun++; }
     store.set('bnf-stats', stats);
     renderStats();
-    showFeedback(g, tries);
+    showFeedback(g, tries, again);
   }
-  function showFeedback(g, tries){
+  function showFeedback(g, tries, again){
     const what = current.type === 'iv' ? 'this one' : current.type === 'chord' ? 'this chord' : 'this note';
     const t = mic && g > 0 ? `${tries} ${tries === 1 ? 'try' : 'tries'} — ` : '';
+    const el = $('feedback');
+    if (again){
+      el.textContent = `↻ ${g === 0 ? 'Missed' : `${tries} tries`} — playing the same ${current.type === 'iv' ? 'notes' : current.type === 'chord' ? 'chord' : 'note'} again so you can lock it in.`;
+      el.className = 'feedback g1';
+      return;
+    }
     const msg = [
       `↺ Missed — ${what} will come back in a couple of rounds.`,
       `↺ ${t || 'Needed help — '}${what} will come back again soon.`,
       `✓ ${t || 'Got there — '}you’ll see ${what} again shortly.`,
       `★ ${mic ? 'First try' : 'Nice'} — ${what} will come back less often now.`
     ][g];
-    const el = $('feedback');
     el.textContent = S.weighted ? msg : '';
     el.className = 'feedback g' + g;
   }
@@ -973,7 +983,7 @@
     syncButtons();
   }
   function clearCurrent(){
-    current = null; revealed = false; hinted = false; setDisplay();
+    current = null; revealed = false; hinted = false; repeatNext = null; repeatRun = 0; setDisplay();
     $('btnReplay').disabled = true; $('btnReveal').disabled = true; $('btnHint').disabled = true; $('rowJudge').style.display = 'none';
   }
   function saveSettings(resetItem){
