@@ -1,4 +1,4 @@
-# Bass Note Finder
+# Bass Note Finder (and guitar)
 
 A single-page ear-training app for bass guitar. It plays a random note or chord arpeggio. You find it on the fretboard, then reveal the answer on a fretboard diagram and a bass clef stave.
 
@@ -6,6 +6,7 @@ A single-page ear-training app for bass guitar. It plays a random note or chord 
 
 - **Single notes, chords or mixed.** Chords cover major, minor, augmented and diminished triads, played as an up, up-and-down or up-plus-block-chord arpeggio at three speeds.
 - **Intervals mode.** Plays 2, 3 or 4 notes from a chosen key (major or natural minor, fixed or random key). Name each interval, then reveal the intervals (e.g. M3 ↑, P4 ↓), note names and scale degrees, with the notes numbered on the fretboard and shown on the stave with the key signature. Options for the biggest jump (4th, 5th or octave) and starting on the key note. Missed intervals come up more often.
+- **Bass or guitar.** An instrument switch (Settings, or `#guitar` / `#bass` on the URL) swaps in an instrument profile: tuning (4/5-string bass or 6-string guitar), fret count, pitch-detection range (28–700 Hz bass, 60–1400 Hz guitar), notation (bass clef or treble clef, both written an octave above sounding pitch), default playback octave, practice riffs and riff register. Settings, scores, smart-repetition history and custom riffs are kept separately per instrument.
 - **Follow the changes.** Plays a chord progression (15 common progressions in major and minor keys, including ii–V–I and blues, fixed or random key) and listens for the roots played back in order. Optional bass note in the playback for an easier start. Chord names and roots are spelled for the key.
 - **Sight-reading drill.** Shows a single note or a 4-note phrase on the bass clef stave with no sound; play what you read. Hint shows the note names, and the sound plays on reveal.
 - **Tuner.** Cents meter using the same YIN detector over a longer (170 ms) window, accepting only clean readings and smoothing over the last few; accurate to well under a cent on test tones. Reference tones for each open string.

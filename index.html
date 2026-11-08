@@ -180,7 +180,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>Bass Note <span>Finder</span> <small class="ver" id="ver"></small><button class="upd" id="updBtn" hidden>Update available ↻</button></h1>
+    <h1><b id="instName" style="font-weight:inherit">Bass</b> Note <span>Finder</span> <small class="ver" id="ver"></small><button class="upd" id="updBtn" hidden>Update available ↻</button></h1>
     <div class="hbtns">
       <button class="iconbtn" id="micBtn" title="Listen to my playing">🎤 Off</button>
       <button class="iconbtn" id="openSettings">⚙ Settings</button>
@@ -208,7 +208,7 @@
   <div class="stage" id="stage">
     <div class="note hidden" id="noteName">?</div>
     <div class="sub" id="sub"></div>
-    <div class="hint" id="hint">Tap “New note”, listen, then find it on your bass.</div>
+    <div class="hint" id="hint">Tap “New note”, listen, then find it on your instrument.</div>
     <div class="listen" id="listenBar"><span class="lvl"><i id="lvl"></i></span><span class="heard" id="heard"></span><span class="steps" id="steps"></span></div>
     <div class="timer" id="timer"><i id="timerBar"></i></div>
 
@@ -227,7 +227,7 @@
     <div class="feedback" id="feedback"></div>
   </div>
 
-  <div class="stave-card" id="staveCard"><div id="stave"></div><div class="cap">Bass clef · bass music is written an octave above how it sounds</div></div>
+  <div class="stave-card" id="staveCard"><div id="stave"></div><div class="cap" id="staveCap">Bass clef · bass music is written an octave above how it sounds</div></div>
 
   <div class="board-wrap" id="boardWrap"></div>
   <div class="legend" id="legend"></div>
@@ -242,13 +242,14 @@
     <p>Bass Note Finder trains you to connect what you hear, what you read and where it sits on the neck.</p>
     <ol>
       <li><b>Listen.</b> Tap “New note” and a random note (or a chord arpeggio in Chords mode) plays.</li>
-      <li><b>Find it.</b> Hunt it down on your bass until your note matches.</li>
+      <li><b>Find it.</b> Hunt it down on your bass or guitar until your note matches.</li>
       <li><b>Stuck?</b> Tap 💡 Hint to see it written on the bass clef stave.</li>
       <li><b>Check.</b> Tap Reveal to see the name and every place it lives on the fretboard, then mark whether you got it.</li>
     </ol>
     <p><b>Intervals mode</b> plays 2–4 notes from a key you choose. Name the interval between each pair (e.g. major 3rd up, perfect 4th down), then reveal the notes, their scale degrees and where they sit on the neck.</p>
     <p><b>Riffs mode</b> plays the opening notes of a tune — classical and traditional melodies, practice riffs, or riffs you add yourself in Settings — and you play it back. With 🎤 on it listens and moves on to the next tune when you get it.</p>
     <p><b>Changes</b> plays a chord progression (I–V–vi–IV, ii–V–I, blues and more, in any key); play the root of each chord back. <b>Reading</b> shows a note or short phrase on the stave with no sound — play what you read. Chords mode now includes 7th chords too.</p>
+    <p><b>Guitar too:</b> switch instrument in Settings (or open the app with <b>#guitar</b> on the end of its address) for a 6-string fretboard, treble-clef notation and guitar riffs. Each instrument keeps its own settings and scores.</p>
     <p><b>Tuner:</b> tap Tuner, play an open string and tune until it says “In tune”. Tap a string to hear its reference note.</p>
     <p><b>Listening:</b> tap 🎤 and the app listens through your microphone. Play the note (or the chord or interval notes in order) and it marks you right automatically and moves on.</p>
     <p>Hands-free mode does all of this on a timer so you can keep both hands on the instrument. With smart repetition on, anything that takes you 4 or more attempts (or a miss) plays again straight away so you can lock it in, anything that takes several tries comes back within a few rounds, and the ones you get first time come back less and less often, so practice time goes where you need it.</p>
@@ -272,6 +273,15 @@
 <div class="sheet" id="sheet">
   <div class="inner">
     <h3>Settings <button class="iconbtn" id="closeSettings">Done</button></h3>
+
+    <div class="field">
+      <label class="t">Instrument</label>
+      <div class="seg" id="instSeg">
+        <button data-v="bass">Bass</button>
+        <button data-v="guitar">Guitar</button>
+      </div>
+      <div class="note-help">Each instrument keeps its own settings, scores and riffs. Bookmark <b>#guitar</b> or <b>#bass</b> on the app’s address to open straight into one.</div>
+    </div>
 
     <div class="field">
       <label class="t">Mode</label>
@@ -447,7 +457,7 @@
     </div>
 
     <h4>Bass &amp; sound</h4>
-    <div class="field">
+    <div class="field" id="stringsField">
       <label class="t">Strings</label>
       <div class="seg" data-key="strings">
         <button data-v="4">4-string (EADG)</button>
@@ -456,14 +466,15 @@
     </div>
 
     <div class="field">
-      <label class="t">Frets on your bass</label>
+      <label class="t" id="fretsLabel">Frets on your bass</label>
       <div class="seg" data-key="bassFrets">
+        <button data-v="19">19</button>
         <button data-v="20">20</button>
         <button data-v="21">21</button>
         <button data-v="22">22</button>
         <button data-v="24">24</button>
       </div>
-      <div class="note-help">With +1 or +2 octave playback, any note that would sound higher than your bass can reach is played an octave lower instead.</div>
+      <div class="note-help" id="fretsHelp">With +1 or +2 octave playback, any note that would sound higher than your bass can reach is played an octave lower instead.</div>
     </div>
 
     <div class="field">
@@ -483,11 +494,11 @@
     <div class="field">
       <label class="t">Playback pitch</label>
       <div class="seg" data-key="shift">
-        <button data-v="0">True bass</button>
+        <button data-v="0">True pitch</button>
         <button data-v="12">+1 octave</button>
         <button data-v="24">+2 octaves</button>
       </div>
-      <div class="note-help">Phone speakers can’t reproduce low bass. Use +1 octave on the speaker, “True bass” with headphones.</div>
+      <div class="note-help" id="shiftHelp">Phone speakers can’t reproduce low bass. Use +1 octave on the speaker, “True pitch” with headphones.</div>
     </div>
 
     <div class="field">
@@ -507,13 +518,31 @@
   // ---------- version ----------
   // The ONE place to bump when releasing changes. It's shown next to the title and also
   // names the offline cache (sw.js reads it from its URL), so installed copies update.
-  const APP_VERSION = 12;
+  const APP_VERSION = 13;
 
   // ---------- constants ----------
   const SHARP = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
   const FLAT  = ['C','D♭','D','E♭','E','F','G♭','G','A♭','A','B♭','B'];
   const NATURAL = new Set([0,2,4,5,7,9,11]);
-  const TUNING = { 4:[43,38,33,28], 5:[43,38,33,28,23] }; // top row = G string, MIDI numbers
+  const TUNING = { 4:[43,38,33,28], 5:[43,38,33,28,23] }; // bass: top row = G string, MIDI numbers
+  // Everything instrument-specific lives here. Both instruments are written an octave above how they sound.
+  const INST = {
+    bass:   { name:'Bass',   word:'bass',   clef:'bass',   minHz:28, maxHz:700,
+              tuning: () => TUNING[S.strings] || TUNING[4],
+              openNames:'E1 A1 D2 G2 (and B0 on a 5-string)', example:'A string 5th fret is D2',
+              riffOctaves:[0, 12, -12, 24, -24],
+              defaults:{ strings:'4', bassFrets:'20', maxFret:12, shift:'12' } },
+    guitar: { name:'Guitar', word:'guitar', clef:'treble', minHz:60, maxHz:1400,
+              tuning: () => [64,59,55,50,45,40],           // top row = high E string
+              openNames:'E2 A2 D3 G3 B3 E4', example:'A string 5th fret is D3',
+              riffOctaves:[12, 0, 24, -12, -24],          // melodies sit an octave up on guitar
+              defaults:{ strings:'6', bassFrets:'22', maxFret:12, shift:'0' } },
+  };
+  const INST_KEYS = ['strings', 'bassFrets', 'maxFret', 'shift'];   // remembered separately per instrument
+  const I = () => INST[S.instrument] || INST.bass;
+  const tuning = () => I().tuning();
+  const statsKey = () => S.instrument === 'guitar' ? 'bnf-stats-guitar' : 'bnf-stats';
+  const riffsKey = () => S.instrument === 'guitar' ? 'bnf-riffs-guitar' : 'bnf-riffs';
   const CHORDS = {
     maj:{ iv:[0,4,7], lbl:['R','3','5'],   suf:'',  long:'major' },
     min:{ iv:[0,3,7], lbl:['R','♭3','5'],  suf:'m', long:'minor' },
@@ -526,7 +555,7 @@
   };
   const SPEED = { slow:0.6, med:0.42, fast:0.26 };
 
-  const defaults = { kind:'note', mode:'manual', think:8, strings:'4', maxFret:12, names:'both', shift:'12',
+  const defaults = { instrument:'bass', inst:{}, kind:'note', mode:'manual', think:8, strings:'4', maxFret:12, names:'both', shift:'12',
                      naturals:false, showOct:true, weighted:true,
                      chordTypes:['maj','min','aug','dim'], pattern:'up', speed:'med', stave:'hint', bassFrets:'20',
                      scale:'major', keyIdx:0, randKey:false, ivCount:'3', ivMax:'12', ivTonic:false,
@@ -541,7 +570,13 @@
     set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
   };
   Object.assign(S, store.get('bnf-settings') || {});
-  Object.assign(stats, store.get('bnf-stats') || {});
+  // A #guitar or #bass link opens that instrument
+  if (/^#(guitar|bass)$/.test(location.hash) && S.instrument !== location.hash.slice(1)){
+    S.inst = S.inst || {}; S.inst[S.instrument || 'bass'] = Object.fromEntries(INST_KEYS.map(k => [k, S[k]]));
+    S.instrument = location.hash.slice(1);
+    Object.assign(S, INST[S.instrument].defaults, (S.inst || {})[S.instrument] || {});
+  }
+  Object.assign(stats, store.get(statsKey()) || {});
   if (!stats.srs || typeof stats.srs.round !== 'number') stats.srs = { round:0, items:{} };
   if (S.stave === 'reveal') S.stave = 'hint'; // older saved setting
   if (!Array.isArray(S.riffSets)) S.riffSets = ['tunes','practice','mine'];
@@ -638,28 +673,39 @@
     card.classList.toggle('tappable', !!(current && !show && S.stave === 'hint'));
     const notes = show ? spelledItem(current) : [];
     let steps = notes.map(n => n.oct*7 + n.letter + 7);   // written an octave above sounding
-    const ottava = steps.some(s => s > 32);
+    // Treble stave lines (E4 G4 B4 D5 F5) sit 12 steps above the bass stave's (G2 B2 D3 F3 A3), so lines,
+    // ledger lines and the 8va limit shift by `off`. Key-signature sharps/flats shift a full two octaves (14).
+    const treble = I().clef === 'treble', off = treble ? 12 : 0, sigOff = treble ? 14 : 0;
+    const ottava = steps.some(s => s > 32 + off);
     if (ottava) steps = steps.map(s => s - 7);
     const isRiff = !!(current && ['riff','read','chg'].includes(current.type));   // laid out as a sequence
-    const W = isRiff && show ? Math.max(320, 110 + steps.length*34) : 320, H = 140, y = st => 52 + (26 - st)*5;   // step 18 = G2 (bottom line), 26 = A3 (top line)
+    const W = isRiff && show ? Math.max(320, 110 + steps.length*34) : 320, H = treble ? 146 : 140, y = st => 52 + (26 + off - st)*5;   // bass: step 18 = G2 (bottom line) … 26 = A3 (top); treble: E4 … F5
     const ink = '#f3ece4', lineC = '#8a7d70';
     let s = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
-    for (let l=18; l<=26; l+=2) s += `<line x1="10" x2="${W-10}" y1="${y(l)}" y2="${y(l)}" stroke="${lineC}" stroke-width="1.2"/>`;
-    // bass clef
-    const fy = y(24);
-    s += `<path d="M24 ${fy} C24 ${fy-13} 47 ${fy-14} 47 ${fy+3} C47 ${fy+20} 33 ${fy+30} 17 ${fy+36}" fill="none" stroke="${ink}" stroke-width="3" stroke-linecap="round"/>`;
-    s += `<circle cx="24.5" cy="${fy}" r="4.6" fill="${ink}"/><circle cx="55" cy="${y(25)}" r="2.3" fill="${ink}"/><circle cx="55" cy="${y(23)}" r="2.3" fill="${ink}"/>`;
+    for (let l=18+off; l<=26+off; l+=2) s += `<line x1="10" x2="${W-10}" y1="${y(l)}" y2="${y(l)}" stroke="${lineC}" stroke-width="1.2"/>`;
+    if (treble){
+      // treble clef, curling round the G line, with the small 8 underneath (sounds an octave lower)
+      const g = y(32);
+      s += `<path d="M34 ${g+3} C26 ${g+4} 24 ${g-7} 31 ${g-10} C40 ${g-13} 46 ${g-3} 42 ${g+6} C38 ${g+15} 21 ${g+15} 18 ${g+2} C15 ${g-12} 27 ${g-21} 34 ${g-30} C40 ${g-38} 41 ${g-49} 36 ${g-52} C31 ${g-55} 27 ${g-45} 28 ${g-34} L33 ${g+27} C34 ${g+34} 27 ${g+37} 23 ${g+32}" fill="none" stroke="${ink}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>`;
+      s += `<circle cx="25" cy="${g+31}" r="3.4" fill="${ink}"/>`;
+      s += `<text x="31" y="${g+49}" fill="${ink}" font-size="11" font-weight="700" text-anchor="middle" font-family="Georgia,serif">8</text>`;
+    } else {
+      // bass clef
+      const fy = y(24);
+      s += `<path d="M24 ${fy} C24 ${fy-13} 47 ${fy-14} 47 ${fy+3} C47 ${fy+20} 33 ${fy+30} 17 ${fy+36}" fill="none" stroke="${ink}" stroke-width="3" stroke-linecap="round"/>`;
+      s += `<circle cx="24.5" cy="${fy}" r="4.6" fill="${ink}"/><circle cx="55" cy="${y(25)}" r="2.3" fill="${ink}"/><circle cx="55" cy="${y(23)}" r="2.3" fill="${ink}"/>`;
+    }
     // key signature (interval mode)
     const isIv = current && current.type === 'iv';
     const sig = isIv ? current.key.sig : 0;
     const SHARP_POS = [24,21,25,22,19,23,20], FLAT_POS = [20,23,19,22,18,21,17];
     for (let i=0; i<Math.abs(sig); i++){
-      const st = sig > 0 ? SHARP_POS[i] : FLAT_POS[i];
+      const st = (sig > 0 ? SHARP_POS[i] : FLAT_POS[i]) + sigOff;
       s += `<text x="${70 + i*10}" y="${y(st) + (sig > 0 ? 6 : 4)}" fill="${ink}" font-size="18" text-anchor="middle" font-family="system-ui">${sig > 0 ? '♯' : '♭'}</text>`;
     }
     if (!show){
       const tip = current && S.stave === 'hint';
-      s += `<text x="${W/2+20}" y="${y(22)+(tip?6:9)}" fill="${tip ? '#a39687' : '#3a332d'}" font-size="${tip?15:30}" font-weight="700" text-anchor="middle" font-family="${tip ? 'Space Grotesk,system-ui' : 'JetBrains Mono'}">${tip ? '💡 Tap for a hint' : '?'}</text>`;
+      s += `<text x="${W/2+20}" y="${y(22+off)+(tip?6:9)}" fill="${tip ? '#a39687' : '#3a332d'}" font-size="${tip?15:30}" font-weight="700" text-anchor="middle" font-family="${tip ? 'Space Grotesk,system-ui' : 'JetBrains Mono'}">${tip ? '💡 Tap for a hint' : '?'}</text>`;
     } else {
       let xs = steps.length === 1 ? [185] : steps.length === 4 ? [110, 165, 220, 275] : [130, 190, 250];
       if (isIv || isRiff){
@@ -669,8 +715,8 @@
       steps.forEach((st, i) => {
         const x = xs[i], cy = y(st), n = isIv ? { ...notes[i], acc:0 } : notes[i]; // key signature covers in-key notes
         const col = (current.type !== 'note' && i === 0) ? '#f2a33a' : ink;
-        for (let l=16; l>=st; l-=2) s += `<line x1="${x-12}" x2="${x+12}" y1="${y(l)}" y2="${y(l)}" stroke="${lineC}" stroke-width="1.4"/>`;
-        for (let l=28; l<=st; l+=2) s += `<line x1="${x-12}" x2="${x+12}" y1="${y(l)}" y2="${y(l)}" stroke="${lineC}" stroke-width="1.4"/>`;
+        for (let l=16+off; l>=st; l-=2) s += `<line x1="${x-12}" x2="${x+12}" y1="${y(l)}" y2="${y(l)}" stroke="${lineC}" stroke-width="1.4"/>`;
+        for (let l=28+off; l<=st; l+=2) s += `<line x1="${x-12}" x2="${x+12}" y1="${y(l)}" y2="${y(l)}" stroke="${lineC}" stroke-width="1.4"/>`;
         s += `<ellipse cx="${x}" cy="${cy}" rx="7.4" ry="5.2" fill="${col}"/>`;
         s += `<ellipse cx="${x}" cy="${cy}" rx="3.8" ry="2.4" transform="rotate(-35 ${x} ${cy})" fill="#1e1a17"/>`;
         if (n.acc) s += `<text x="${x-13}" y="${cy+6}" fill="${col}" font-size="${Math.abs(n.acc)===2 && n.acc<0 ? 15 : 18}" text-anchor="end" font-family="system-ui">${ACC_TXT[n.acc]}</text>`;
@@ -703,11 +749,16 @@
     { id:'morning', set:'tunes', title:'Morning Mood',                       by:'Grieg, 1875',     bpm:100, n:'G2 E2 D2 C2 D2 E2 G2 E2' },
     { id:'twinkle', set:'tunes', title:'Twinkle, Twinkle, Little Star',      by:'Traditional',     bpm:110, n:'C2 C2 G2 G2 A2 A2 G2:2' },
     { id:'jacques', set:'tunes', title:'Frère Jacques',                      by:'Traditional',     bpm:110, n:'C2 D2 E2 C2 C2 D2 E2 C2' },
-    { id:'boogie',  set:'practice', title:'Boogie walk',                     by:'Practice riff',   bpm:110, n:'A1 C#2 E2 F#2 G2 F#2 E2 C#2' },
-    { id:'root58',  set:'practice', title:'Root–fifth–octave',               by:'Practice riff',   bpm:100, n:'E1 B1 E2 B1 A1 E2 A2 E2' },
-    { id:'penta',   set:'practice', title:'Minor pentatonic climb',          by:'Practice riff',   bpm:100, n:'A1 C2 D2 E2 G2 A2 G2 E2' },
-    { id:'octpop',  set:'practice', title:'Octave pop',                      by:'Practice riff',   bpm:100, n:'G1:0.5 G2:0.5 G1:0.5 G2:0.5 C2:0.5 C3:0.5 D2:0.5 D3:0.5' },
-    { id:'walk',    set:'practice', title:'Chromatic walk-up',               by:'Practice riff',   bpm:100, n:'C2 D2 D#2 E2 F2 A2 G2 F2' },
+    { id:'boogie',  set:'practice', inst:'bass', title:'Boogie walk',                     by:'Practice riff',   bpm:110, n:'A1 C#2 E2 F#2 G2 F#2 E2 C#2' },
+    { id:'root58',  set:'practice', inst:'bass', title:'Root–fifth–octave',               by:'Practice riff',   bpm:100, n:'E1 B1 E2 B1 A1 E2 A2 E2' },
+    { id:'penta',   set:'practice', inst:'bass', title:'Minor pentatonic climb',          by:'Practice riff',   bpm:100, n:'A1 C2 D2 E2 G2 A2 G2 E2' },
+    { id:'octpop',  set:'practice', inst:'bass', title:'Octave pop',                      by:'Practice riff',   bpm:100, n:'G1:0.5 G2:0.5 G1:0.5 G2:0.5 C2:0.5 C3:0.5 D2:0.5 D3:0.5' },
+    { id:'gpent',   set:'practice', inst:'guitar', title:'Pentatonic box run',    by:'Practice riff',   bpm:100, n:'A2 C3 D3 E3 G3 A3 C4 D4' },
+    { id:'gblues',  set:'practice', inst:'guitar', title:'Blues-scale lick',      by:'Practice riff',   bpm:100, n:'A3:0.5 C4:0.5 D4:0.5 D#4:0.5 E4 G4:0.5 A4:1.5' },
+    { id:'gmajor',  set:'practice', inst:'guitar', title:'G major scale',         by:'Practice riff',   bpm:110, n:'G2 A2 B2 C3 D3 E3 F#3 G3' },
+    { id:'gsweep',  set:'practice', inst:'guitar', title:'Am arpeggio up and down', by:'Practice riff', bpm:100, n:'A3:0.5 C4:0.5 E4:0.5 A4 E4:0.5 C4:0.5 A3' },
+    { id:'gchrom',  set:'practice', inst:'guitar', title:'1-2-3-4 finger warm-up', by:'Practice riff',  bpm:110, n:'E2 F2 F#2 G2 A2 A#2 B2 C3' },
+    { id:'walk',    set:'practice', inst:'bass', title:'Chromatic walk-up',               by:'Practice riff',   bpm:100, n:'C2 D2 D#2 E2 F2 A2 G2 F2' },
   ];
   function parseRiff(text){
     const notes = [], beats = [];
@@ -722,10 +773,10 @@
     if (notes.length < 2) return { error:'Enter at least 2 notes' };
     return { notes, beats };
   }
-  function myRiffs(){ const r = store.get('bnf-riffs'); return Array.isArray(r) ? r : []; }
+  function myRiffs(){ const r = store.get(riffsKey()); return Array.isArray(r) ? r : []; }
   function allRiffs(){ return RIFFS.concat(myRiffs().map(r => ({ ...r, set:'mine', by:'My riff' }))); }
   const riffById = id => allRiffs().find(r => r.id === id);
-  const lowNote = () => Math.min(...TUNING[S.strings]);
+  const lowNote = () => Math.min(...tuning());
   function fits(notes){ return Math.min(...notes) >= lowNote() && Math.max(...notes) <= maxPitch(); }
   function buildRiff(r, shift){
     const p = parseRiff(r.n); if (p.error) return null;
@@ -743,10 +794,10 @@
       const opts = []; for (let sh=-7; sh<=7; sh++) if (sh && ok(sh)) opts.push(sh);
       if (opts.length) return opts[Math.floor(Math.random()*opts.length)];
     }
-    for (const sh of [0, 12, -12, 24, -24]) if (ok(sh)) return sh;
+    for (const sh of I().riffOctaves) if (ok(sh)) return sh;
     return null;
   }
-  function enabledRiffs(){ return allRiffs().filter(r => S.riffSets.includes(r.set)); }
+  function enabledRiffs(){ return allRiffs().filter(r => S.riffSets.includes(r.set) && (!r.inst || r.inst === S.instrument)); }
   function pickRiff(){
     let list = enabledRiffs().filter(r => riffShift(r) !== null);
     if (!list.length) return null;
@@ -847,10 +898,10 @@
   }
 
   // ---------- picking ----------
-  function maxPitch(){ return Math.max(...TUNING[S.strings]) + S.maxFret; }
+  function maxPitch(){ return Math.max(...tuning()) + S.maxFret; }
   function notePool(){
     const set = new Set();
-    for (const open of TUNING[S.strings]) for (let f=0; f<=S.maxFret; f++){
+    for (const open of tuning()) for (let f=0; f<=S.maxFret; f++){
       const m = open + f;
       if (S.naturals && !NATURAL.has(m % 12)) continue;
       set.add(m);
@@ -860,7 +911,7 @@
   function pickIntervals(){
     const key = keyInfo(S.scale, S.randKey ? Math.floor(Math.random()*12) : +S.keyIdx);
     const pool = [];
-    for (const open of TUNING[S.strings]) for (let f=0; f<=S.maxFret; f++){
+    for (const open of tuning()) for (let f=0; f<=S.maxFret; f++){
       const m = open + f;
       if (degreeOf(m, key) >= 0 && !pool.includes(m)) pool.push(m);
     }
@@ -952,7 +1003,7 @@
     if (k.startsWith('grp')){
       if (S.kind !== 'iv' || !e.item || e.item.notes.length !== +S.ivCount) return null;
       if (!S.randKey && (e.item.scale !== S.scale || e.item.idx !== +S.keyIdx)) return null;
-      const top = Math.max(...TUNING[S.strings]) + S.maxFret, low = Math.min(...TUNING[S.strings]);
+      const top = Math.max(...tuning()) + S.maxFret, low = Math.min(...tuning());
       if (e.item.notes.some(m => m < low || m > top)) return null;
       return { type:'iv', key:keyInfo(e.item.scale, e.item.idx), notes:e.item.notes.slice() };
     }
@@ -1034,7 +1085,7 @@
   // Octave shift for playback, dropped an octave at a time if the sound would go
   // above the highest note on the player's bass. `top` = highest note being played.
   function shiftFor(top){
-    const cap = Math.max(...TUNING[S.strings]) + (+S.bassFrets);
+    const cap = Math.max(...tuning()) + (+S.bassFrets);
     let sh = +S.shift;
     while (sh > 0 && top + sh > cap) sh -= 12;
     return sh;
@@ -1115,7 +1166,7 @@
 
   // ---------- fretboard ----------
   function drawBoard(){
-    const strings = TUNING[S.strings], frets = S.maxFret;
+    const strings = tuning(), frets = S.maxFret;
     const fw = 46, sh = 30, left = 40, top = 22;
     const W = left + (frets+1)*fw + 14, H = top + (strings.length-1)*sh + 32;
     const show = current && revealed;
@@ -1246,7 +1297,7 @@
     $('btnReplay').disabled = current.type === 'read';   // reading: hearing it would give it away
     $('btnReveal').disabled = false; $('btnHint').disabled = false;
     $('rowJudge').style.display = 'none';
-    const what = (S.stave === 'always' ? 'Read it on the stave — ' : '') + (current.type === 'read' ? 'play what’s on the stave' : current.type === 'chg' ? 'play the root of each chord, in order' : current.type === 'riff' ? 'play it back on your bass' : current.type === 'iv' ? 'name the interval between each note' : current.type === 'chord' ? 'find the root, then play the arpeggio' : 'find it on the fretboard');
+    const what = (S.stave === 'always' ? 'Read it on the stave — ' : '') + (current.type === 'read' ? 'play what’s on the stave' : current.type === 'chg' ? 'play the root of each chord, in order' : current.type === 'riff' ? `play it back on your ${I().word}` : current.type === 'iv' ? 'name the interval between each note' : current.type === 'chord' ? 'find the root, then play the arpeggio' : 'find it on the fretboard');
     const whatCap = what[0].toUpperCase() + what.slice(1);
     const listening = !!mic;
     $('hint').textContent = S.mode === 'auto' ? whatCap + '…'
@@ -1281,7 +1332,7 @@
     const g = schedule(ok);
     const again = S.weighted && (!ok || effectiveTries() + 1 >= REPEAT_AT) && repeatRun < MAX_REPEATS;
     if (again){ repeatNext = { ...current }; repeatRun++; }
-    store.set('bnf-stats', stats);
+    store.set(statsKey(), stats);
     renderStats();
     showFeedback(g, tries, again);
   }
@@ -1370,6 +1421,7 @@
     $('chordTypes').querySelectorAll('button').forEach(b => b.classList.toggle('on', S.chordTypes.includes(b.dataset.v)));
     $('riffSets').querySelectorAll('button').forEach(b => b.classList.toggle('on', S.riffSets.includes(b.dataset.v)));
     renderMyRiffs();
+    applyInstrumentUI();
     $('chgKey').value = String(S.chgKey);
     $('think').value = S.think; $('thinkVal').textContent = S.think + 's';
     $('maxFret').max = S.bassFrets;
@@ -1398,6 +1450,41 @@
     if (k === 'mode' && autoRunning) stopAuto();
     S[k] = b.dataset.v; saveSettings(k === 'strings' || k === 'bassFrets');
   }));
+  function applyInstrumentUI(){
+    const ins = I(), guitar = S.instrument === 'guitar';
+    $('instName').textContent = ins.name;
+    document.title = `${ins.name} Note Finder – Ear Training & Fretboard Practice`;
+    $('instSeg').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === S.instrument));
+    $('stringsField').style.display = guitar ? 'none' : '';
+    $('fretsLabel').textContent = `Frets on your ${ins.word}`;
+    $('fretsHelp').textContent = `With +1 or +2 octave playback, any note that would sound higher than your ${ins.word} can reach is played an octave lower instead.`;
+    $('shiftHelp').textContent = guitar
+      ? 'Guitar sounds fine at true pitch on a phone speaker. The octave options are there if you want them.'
+      : 'Phone speakers can’t reproduce low bass. Use +1 octave on the speaker, “True pitch” with headphones.';
+    $('staveCap').textContent = guitar ? 'Treble clef · guitar music is written an octave above how it sounds'
+                                       : 'Bass clef · bass music is written an octave above how it sounds';
+    if (!$('rfMsg').classList.contains('err')) $('rfMsg').innerHTML = rfHelp();
+  }
+  function rfHelp(){
+    return `Write notes as they sound on ${I().word}, with the octave number: open strings are <b>${I().openNames}</b>, so ${I().example}. Use # or b for sharps and flats. Each note is one beat; add <b>:0.5</b> for half a beat or <b>:2</b> for two.`;
+  }
+  function switchInstrument(to){
+    if (!INST[to] || S.instrument === to) return;
+    if (autoRunning) stopAuto();
+    S.inst = S.inst || {};
+    S.inst[S.instrument] = Object.fromEntries(INST_KEYS.map(k => [k, S[k]]));   // remember this instrument's set-up
+    S.instrument = to;
+    Object.assign(S, INST[to].defaults, S.inst[to] || {});
+    stats = { hit:0, miss:0, streak:0, best:0, perNote:{} };
+    Object.assign(stats, store.get(statsKey()) || {});
+    if (!stats.srs || typeof stats.srs.round !== 'number') stats.srs = { round:0, items:{} };
+    recent = []; lastKey = null;
+    try { history.replaceState(null, '', '#' + to); } catch(e){}
+    saveSettings(true);
+    renderStats();
+  }
+  $('instSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) switchInstrument(b.dataset.v); });
+  window.addEventListener('hashchange', () => { if (/^#(guitar|bass)$/.test(location.hash)) switchInstrument(location.hash.slice(1)); });
   $('chgKey').innerHTML = '<option value="random">Random key each round</option>'
     + Array.from({length:12}, (_, i) => `<option value="${i}">${pcName(i)}</option>`).join('');
   $('chgKey').addEventListener('change', e => { S.chgKey = e.target.value; saveSettings(false); });
@@ -1407,7 +1494,7 @@
     if (S.kind === b.dataset.v) return;
     S.kind = b.dataset.v; saveSettings(true);
     if (!autoRunning) $('hint').textContent =
-      S.kind === 'note' ? 'Tap “New note”, listen, then find it on your bass.'
+      S.kind === 'note' ? `Tap “New note”, listen, then find it on your ${I().word}.`
       : S.kind === 'iv' ? `Tap “New notes” and name the intervals. Key and scale are in Settings.`
       : S.kind === 'riff' ? 'Tap “New riff”, listen, then play it back. Add your own riffs in Settings.'
       : S.kind === 'chg' ? 'Tap “New changes”: hear a chord progression, then play the root of each chord.'
@@ -1435,13 +1522,12 @@
       : '';
   }
   function riffMsg(text, err){ $('rfMsg').innerHTML = text; $('rfMsg').classList.toggle('err', !!err); }
-  const RF_HELP = $('rfMsg').innerHTML;
   function readRiffForm(){
     const title = $('rfTitle').value.trim(), n = $('rfNotes').value.trim().replace(/\s+/g, ' ');
     const p = parseRiff(n);
     if (p.error){ riffMsg(p.error, true); return null; }
     if (!fits(p.notes)) riffMsg('Heads up: some notes are outside your current fret range, so it will be moved up or down an octave when it plays.', false);
-    else riffMsg(RF_HELP, false);
+    else riffMsg(rfHelp(), false);
     return { title: title || 'My riff', n, p };
   }
   $('rfTest').onclick = () => {
@@ -1454,7 +1540,7 @@
     const f = readRiffForm(); if (!f) return;
     const list = myRiffs();
     list.push({ id:'u' + Date.now().toString(36), title:f.title, n:f.n, bpm:100 });
-    store.set('bnf-riffs', list);
+    store.set(riffsKey(), list);
     $('rfTitle').value = ''; $('rfNotes').value = '';
     if (!S.riffSets.includes('mine')) S.riffSets = [...S.riffSets, 'mine'];
     saveSettings(false);
@@ -1462,7 +1548,7 @@
   };
   $('myRiffList').addEventListener('click', e => {
     const b = e.target.closest('button[data-del]'); if (!b) return;
-    store.set('bnf-riffs', myRiffs().filter(r => r.id !== b.dataset.del));
+    store.set(riffsKey(), myRiffs().filter(r => r.id !== b.dataset.del));
     renderMyRiffs();
   });
   $('think').addEventListener('input', e => { S.think = +e.target.value; saveSettings(false); });
@@ -1472,7 +1558,7 @@
     const b = e.target.closest('button'); if (!b) return;
     S.keyIdx = +b.dataset.v; saveSettings(current && current.type === 'iv');
   });
-  $('resetStats').addEventListener('click', () => { stats = { hit:0, miss:0, streak:0, best:0, perNote:{}, srs:{ round:0, items:{} } }; store.set('bnf-stats', stats); renderStats(); $('feedback').textContent = ''; });
+  $('resetStats').addEventListener('click', () => { stats = { hit:0, miss:0, streak:0, best:0, perNote:{}, srs:{ round:0, items:{} } }; store.set(statsKey(), stats); renderStats(); $('feedback').textContent = ''; });
 
   const openSheet = o => { $('sheet').classList.toggle('open', o); $('sheetBg').classList.toggle('open', o); };
   $('openSettings').onclick = () => openSheet(true);
@@ -1481,7 +1567,7 @@
 
   // ---------- listening: microphone pitch detection ----------
   // YIN pitch detector tuned for bass (≈28–700 Hz). Input is decimated by 2 for speed.
-  function detectPitch(buf, sr, dec = 2){
+  function detectPitch(buf, sr, dec = 2, minHz = 28, maxHz = 700){
     let rms = 0;
     for (let i=0; i<buf.length; i++) rms += buf[i]*buf[i];
     rms = Math.sqrt(rms / buf.length);
@@ -1493,7 +1579,7 @@
       fs = sr / 2;
     }
     const n = x.length, W = n >> 1;
-    const tMin = Math.max(2, Math.floor(fs / 700)), tMax = Math.min(W - 2, Math.ceil(fs / 28));
+    const tMin = Math.max(2, Math.floor(fs / maxHz)), tMax = Math.min(W - 2, Math.ceil(fs / minHz));
     const c = new Float32Array(tMax + 2);
     let run = 0; c[0] = 1;
     for (let t=1; t<=tMax+1; t++){
@@ -1579,7 +1665,7 @@
     if (!mic) return;
     if (tunerOn){ tunerStep(); return; }
     mic.an.getFloatTimeDomainData(mic.buf);
-    const { rms, f } = detectPitch(mic.buf, ctx.sampleRate);
+    const { rms, f } = detectPitch(mic.buf, ctx.sampleRate, 2, I().minHz, I().maxHz);
     $('lvl').style.width = Math.min(100, rms * 500) + '%';
     const now = performance.now();
     L.sched = L.sched.filter(x => now < x.start + x.dur + 2000);
@@ -1699,7 +1785,7 @@
   async function openTuner(){
     ac();
     $('tuner').hidden = false; tunerOn = true; T.cents = [];
-    $('tStrings').innerHTML = TUNING[S.strings].slice().reverse()
+    $('tStrings').innerHTML = tuning().slice().reverse()
       .map(m => `<button data-m="${m}">${single(m % 12)}<small style="font-size:10px;color:var(--muted)">${octOf(m)}</small></button>`).join('');
     showTuner(null);
     tunerMicWasOn = !!mic;
@@ -1736,11 +1822,11 @@
   function tunerStep(){
     if (++tunerTick % 4) return;
     mic.tan.getFloatTimeDomainData(mic.tbuf);
-    const { rms, f, clarity } = detectPitch(mic.tbuf, ctx.sampleRate, 2);   // 170 ms window: steadier in room noise
+    const { rms, f, clarity } = detectPitch(mic.tbuf, ctx.sampleRate, 2, I().minHz, I().maxHz);   // 170 ms window: steadier in room noise
     $('lvl').style.width = Math.min(100, rms * 500) + '%';
     const now = performance.now();
     // only trust clean readings: as a note fades into room noise the pitch estimate wobbles
-    if (!f || rms < 0.006 || clarity < 0.95 || f < 25 || f > 1000){
+    if (!f || rms < 0.006 || clarity < 0.95 || f < I().minHz * 0.9 || f > I().maxHz){
       if (now - T.lastShown > 1200){ T.cents = []; showTuner(null); }
       return;
     }
