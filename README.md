@@ -7,6 +7,7 @@ A single-page ear-training app for bass guitar. It plays a random note or chord 
 - **Single notes, chords or mixed.** Chords cover major, minor, augmented and diminished triads, played as an up, up-and-down or up-plus-block-chord arpeggio at three speeds.
 - **Intervals mode.** Plays 2, 3 or 4 notes from a chosen key (major or natural minor, fixed or random key). Name each interval, then reveal the intervals (e.g. M3 ↑, P4 ↓), note names and scale degrees, with the notes numbered on the fretboard and shown on the stave with the key signature. Options for the biggest jump (4th, 5th or octave) and starting on the key note. Missed intervals come up more often.
 - **Bass or guitar.** An instrument switch (Settings, or `#guitar` / `#bass` on the URL) swaps in an instrument profile: tuning (4/5-string bass or 6-string guitar), fret count, pitch-detection range (28–700 Hz bass, 60–1400 Hz guitar), notation (bass clef or treble clef, both written an octave above sounding pitch), default playback octave, practice riffs and riff register. Settings, scores, smart-repetition history and custom riffs are kept separately per instrument.
+- **Sharing.** Settings has Share buttons for the bass and guitar versions: the phone's share sheet where available, otherwise the link is copied.
 - **Follow the changes.** Plays a chord progression (15 common progressions in major and minor keys, including ii–V–I and blues, fixed or random key) and listens for the roots played back in order. Optional bass note in the playback for an easier start. Chord names and roots are spelled for the key.
 - **Sight-reading drill.** Shows a single note or a 4-note phrase on the bass clef stave with no sound; play what you read. Hint shows the note names, and the sound plays on reveal.
 - **Tuner.** Cents meter using the same YIN detector over a longer (170 ms) window, accepting only clean readings and smoothing over the last few; accurate to well under a cent on test tones. Reference tones for each open string.
@@ -22,28 +23,29 @@ A single-page ear-training app for bass guitar. It plays a random note or chord 
 
 ## Files
 
+The website lives in `public/`; everything outside it is project tooling.
+
 | Path | Purpose |
 | --- | --- |
-| `index.html` | The whole app (HTML, CSS, JS) |
-| `sw.js` | Service worker – caches the site so it works offline once installed |
-| `manifest.webmanifest` | Makes it installable as a phone/desktop app |
-| `icons/`, `favicon.ico` | App icons and favicons |
-| `og-image.png` | Preview image for links shared on social media / messaging |
-| `fonts/` | Self-hosted Space Grotesk and JetBrains Mono (SIL OFL, licences included) |
-| `.htaccess` | Apache settings: HTTPS redirect, MIME types, caching, compression |
-| `robots.txt` | Allows search engines to index the site |
+| `public/index.html` | The whole app (HTML, CSS, JS) |
+| `public/sw.js` | Service worker – caches the site so it works offline once installed |
+| `public/manifest.webmanifest` | Makes it installable as a phone/desktop app |
+| `public/icons/`, `public/favicon.ico` | App icons and favicons |
+| `public/og-image.png` | Preview image for links shared on social media / messaging |
+| `public/fonts/` | Self-hosted Space Grotesk and JetBrains Mono (SIL OFL, licences included) |
+| `public/.htaccess` | Apache settings (HTTPS redirect, MIME types, caching) for shared hosting; ignored on Cloudflare |
+| `public/robots.txt` | Allows search engines to index the site |
+| `wrangler.jsonc` | Cloudflare Workers config: serves `public/` as static assets |
 
 ## Deploying
 
-No build step. Upload everything (including the hidden `.htaccess`) to your web root, or a subfolder, on any static host over HTTPS.
+Live at **https://bass-note-finder.russell-f94.workers.dev/** (`#guitar` opens the guitar version).
 
-- **Shared hosting (Apache):** upload via FTP/file manager. `.htaccess` handles HTTPS and caching.
-- **Netlify / Cloudflare Pages / GitHub Pages:** point it at this repo's root. `.htaccess` is ignored there and isn't needed.
+- **Cloudflare (current host):** the Worker `bass-note-finder` is configured by `wrangler.jsonc`. Connect it to this repo once in the Cloudflare dashboard (Workers & Pages → bass-note-finder → Settings → Builds → Connect; branch `main`, deploy command `npx wrangler deploy`, no build command) and every push to `main` deploys automatically. Manual alternative: `npx wrangler deploy`.
+- **Any other static host / shared hosting:** upload the contents of `public/` (including the hidden `.htaccess` on Apache).
 
-**When you change anything:** bump `APP_VERSION` near the top of the script in `index.html`. That one number is shown next to the title, names the offline cache (`sw.js` is registered as `sw.js?v=<APP_VERSION>`), and lets open copies of the app show a "vN available" tag. If you add files, add them to the `FILES` list in `sw.js` too.
-
-**Social previews:** some platforms need an absolute image URL. Once the domain is known, change `og:image` in `index.html` to `https://yourdomain/og-image.png` and add a `<link rel="canonical">`.
+**When you change anything:** bump `APP_VERSION` near the top of the script in `public/index.html`. That one number is shown next to the title, names the offline cache (`sw.js` is registered as `sw.js?v=<APP_VERSION>`), and lets open copies of the app show a "vN available" tag. If you add files, add them to the `FILES` list in `public/sw.js` too.
 
 ## Local testing
 
-`python3 -m http.server` in this folder, then open http://localhost:8000. Offline caching only works over http(s), not when opening the file directly.
+`python3 -m http.server` in `public/`, then open http://localhost:8000. Offline caching only works over http(s), not when opening the file directly.

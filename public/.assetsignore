@@ -1,0 +1,3 @@
+# Apache-only settings file; not needed on Cloudflare
+.htaccess
+.assetsignore

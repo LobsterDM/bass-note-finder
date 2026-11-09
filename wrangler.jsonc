@@ -1,0 +1,9 @@
+// Cloudflare Workers config: serves the public/ folder as a static site.
+// With the Worker connected to this GitHub repo (Settings → Builds), every push to main deploys.
+{
+  "name": "bass-note-finder",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./public"
+  }
+}
