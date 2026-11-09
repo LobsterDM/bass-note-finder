@@ -447,6 +447,15 @@
       </div>
     </div>
 
+    <div class="field">
+      <label class="t">Keep the screen on</label>
+      <div class="seg" data-key="keepAwake">
+        <button data-v="practice">While practising</button>
+        <button data-v="off">Off</button>
+      </div>
+      <div class="note-help" id="wakeHelp">Stops the screen dimming and locking while you’re using the app. If you leave it for 5 minutes it’s allowed to sleep again to save battery.</div>
+    </div>
+
     <h4>Listening</h4>
     <div class="field">
       <label class="t">When listening (🎤 button), count a note as right if…</label>
@@ -530,7 +539,7 @@
   // ---------- version ----------
   // The ONE place to bump when releasing changes. It's shown next to the title and also
   // names the offline cache (sw.js reads it from its URL), so installed copies update.
-  const APP_VERSION = 14;
+  const APP_VERSION = 15;
 
   // ---------- constants ----------
   const SHARP = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
@@ -571,7 +580,7 @@
                      naturals:false, showOct:true, weighted:true,
                      chordTypes:['maj','min','aug','dim'], pattern:'up', speed:'med', stave:'hint', bassFrets:'20',
                      scale:'major', keyIdx:0, randKey:false, ivCount:'3', ivMax:'12', ivTonic:false,
-                     listen:false, matchMode:'pc',
+                     listen:false, matchMode:'pc', keepAwake:'practice',
                      riffSets:['tunes','practice','mine'], riffLen:'5', riffKey:'orig', riffTitle:'before',
                      readLen:'1', chgKey:'random', chgSet:'all', chgBass:'off' };
   let S = {...defaults};
@@ -1298,6 +1307,7 @@
     setTimeout(()=>el.classList.remove('pop'), 250);
   }
   function newItem(){
+    activity();
     stats.srs.round++; replays = 0;
     const it = pick();
     if (!it){ $('hint').textContent = 'Nothing fits these settings — raise “Practise up to fret”, allow bigger jumps or pick more chord types.'; return 0; }
@@ -1318,6 +1328,7 @@
     return len;
   }
   function reveal(fromListen){
+    activity();
     if (!current || revealed) return;
     revealed = true;
     setDisplay(); drawBoard();
@@ -1411,13 +1422,27 @@
       autoTimer = setTimeout(cycle, current.type !== 'note' ? Math.max(3000, len*1000 + 1200) : 3000);
     }, ms);
   }
-  let wakeLock = null;
-  async function lockScreen(on){
+  // ---------- keep the screen awake while practising ----------
+  // Any activity (taps, notes heard, tuner readings, hands-free rounds) keeps the screen on;
+  // after WAKE_IDLE_MS with nothing happening it's allowed to sleep again to save battery.
+  const WAKE_IDLE_MS = 5 * 60 * 1000;
+  let wakeLock = null, lastActive = 0, wakeRequesting = false;
+  const wakeSupported = 'wakeLock' in navigator;
+  function practising(){ return autoRunning || tunerOn || performance.now() - lastActive < WAKE_IDLE_MS; }
+  async function keepAwake(){
+    if (!wakeSupported || S.keepAwake === 'off' || document.visibilityState !== 'visible' || wakeLock || wakeRequesting) return;
+    wakeRequesting = true;
     try{
-      if (on && 'wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
-      else if (!on && wakeLock){ await wakeLock.release(); wakeLock = null; }
-    }catch(e){}
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });   // the system drops it when the app is hidden
+    }catch(e){ wakeLock = null; }
+    wakeRequesting = false;
   }
+  async function letSleep(){ if (wakeLock){ try { await wakeLock.release(); } catch(e){} wakeLock = null; } }
+  function activity(){ lastActive = performance.now(); if (practising()) keepAwake(); }
+  setInterval(() => { if (wakeLock && !practising()) letSleep(); }, 15000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && practising()) keepAwake(); });
+  async function lockScreen(on){ if (on) activity(); }   // hands-free start/stop
 
   // ---------- settings ----------
   function syncButtons(){
@@ -1434,6 +1459,8 @@
     $('riffSets').querySelectorAll('button').forEach(b => b.classList.toggle('on', S.riffSets.includes(b.dataset.v)));
     renderMyRiffs();
     applyInstrumentUI();
+    if (!wakeSupported) $('wakeHelp').textContent = 'This browser can’t keep the screen on. On iPhone, update to the latest iOS; on Android, use Chrome.';
+    if (S.keepAwake === 'off') letSleep(); else if (practising()) keepAwake();
     $('chgKey').value = String(S.chgKey);
     $('think').value = S.think; $('thinkVal').textContent = S.think + 's';
     $('maxFret').max = S.bassFrets;
@@ -1772,6 +1799,7 @@
     return L.idx > 0 && L.idx + 1 < tg.length && tg[L.idx] === tg[L.idx - 1] && matches(m, tg[L.idx + 1]);
   }
   function onHeard(m){
+    activity();
     const name = single(((m % 12) + 12) % 12) + (S.matchMode === 'exact' ? octOf(m) : '');
     if (!current || revealed || L.solved){ setHeard(`Heard ${name}`, ''); return; }
     const tg = targets(current);
@@ -1815,6 +1843,7 @@
   let tunerOn = false, tunerMicWasOn = false, tunerTick = 0;
   const T = { cents:[], lastShown:0 };
   async function openTuner(){
+    activity();
     ac();
     $('tuner').hidden = false; tunerOn = true; T.cents = [];
     $('tStrings').innerHTML = tuning().slice().reverse()
@@ -1870,6 +1899,7 @@
     const cents = core.reduce((a,b)=>a+b,0) / core.length;
     T.lastShown = now;
     showTuner({ midi, cents, f });
+    activity();
   }
 
   // ---------- buttons ----------
@@ -1878,9 +1908,10 @@
     if (S.listen && !mic) await startMic();
     if (S.mode === 'auto') (autoRunning ? stopAuto() : startAuto()); else newItem();
   };
-  $('btnReplay').onclick = () => { if (current){ if (!revealed) replays++; play(current); } };
+  $('btnReplay').onclick = () => { activity(); if (current){ if (!revealed) replays++; play(current); } };
   $('btnReveal').onclick = () => reveal();
   function hint(){
+    activity();
     if (current && current.type === 'read' && !revealed && !hinted){
       hinted = true; $('btnHint').disabled = true; setDisplay();
       $('hint').textContent = 'Hint: the note names are shown above.';
