@@ -53,6 +53,9 @@
   .modebar button{flex:1;background:none;border:none;color:var(--muted);font:inherit;font-size:14px;font-weight:500;padding:10px 2px;border-radius:10px;white-space:nowrap}
   .modebar button.on{background:var(--panel2);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)}
   .hbtns{display:flex;gap:6px;flex:none}
+  .heardlog{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--muted);margin-top:8px;line-height:1.7}
+  .heardlog:empty{display:none}
+  .heardlog b{font-weight:500;color:var(--good)} .heardlog i{font-style:normal;color:#f08a6c}
   .iconbtn{white-space:nowrap}
   .sub .tt{font-family:'Space Grotesk',system-ui,sans-serif;font-size:15px}
   .feedback{font-size:13px;color:var(--muted);margin-top:12px;min-height:18px}
@@ -212,6 +215,7 @@
     <div class="sub" id="sub"></div>
     <div class="hint" id="hint">Tap “New note”, listen, then find it on your instrument.</div>
     <div class="listen" id="listenBar"><span class="lvl"><i id="lvl"></i></span><span class="heard" id="heard"></span><span class="steps" id="steps"></span></div>
+    <div class="heardlog" id="heardLog"></div>
     <div class="timer" id="timer"><i id="timerBar"></i></div>
 
     <div class="row">
@@ -539,7 +543,7 @@
   // ---------- version ----------
   // The ONE place to bump when releasing changes. It's shown next to the title and also
   // names the offline cache (sw.js reads it from its URL), so installed copies update.
-  const APP_VERSION = 15;
+  const APP_VERSION = 16;
 
   // ---------- constants ----------
   const SHARP = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
@@ -1710,7 +1714,8 @@
 
   function resetListen(){
     clearTimeout(autoNext);
-    Object.assign(L, { idx:0, solved:false, wrong:0, lastFired:L.stable });
+    Object.assign(L, { idx:0, solved:false, wrong:0, lastFired:L.stable, log:[] });
+    $('heardLog').innerHTML = '';
     $('stage').classList.remove('correct');
     renderSteps();
     if (mic) setHeard('Listening…', '');
@@ -1803,7 +1808,12 @@
     const name = single(((m % 12) + 12) % 12) + (S.matchMode === 'exact' ? octOf(m) : '');
     if (!current || revealed || L.solved){ setHeard(`Heard ${name}`, ''); return; }
     const tg = targets(current);
-    if (matches(m, tg[L.idx]) || skipsRepeat(m, tg)){
+    const good = matches(m, tg[L.idx]) || skipsRepeat(m, tg), ringing = !good && L.idx > 0 && matches(m, tg[L.idx - 1]);
+    if (tg.length > 1 && !ringing){      // sequences: keep a running record of what was heard
+      L.log.push(good ? `<b>${name} ✓</b>` : `<i>${name} ✗</i>`); if (L.log.length > 24) L.log.shift();
+      $('heardLog').innerHTML = 'I heard: ' + L.log.join(' · ');
+    }
+    if (good){
       L.idx += matches(m, tg[L.idx]) ? 1 : 2; renderSteps();
       if (L.idx >= tg.length){ setHeard(`✓ ${name} — correct!`, 'ok'); solved(); }
       else setHeard(`✓ ${name} — now the next note`, 'ok');
@@ -1824,7 +1834,10 @@
     if (S.mode === 'auto' && autoRunning){
       clearTimeout(autoTimer); cancelAnimationFrame(rafId); $('timerBar').style.width = '100%';
       $('hint').textContent = 'Correct! Next one coming up…';
-      autoTimer = setTimeout(cycle, 2200);
+      autoTimer = setTimeout(cycle, current.type === 'iv' ? 5000 : 2200);
+    } else if (current.type === 'iv'){
+      // Intervals: stay on the result until the player asks for the next set
+      $('hint').textContent = 'Correct! Take your time, then tap “New notes” for the next set.';
     } else {
       $('hint').textContent = 'Correct! Next one coming up…';
       const was = current;
