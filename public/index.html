@@ -113,6 +113,15 @@
   .chip{font-family:'JetBrains Mono',monospace;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px 9px;font-size:13px}
   .chip em{font-style:normal;color:var(--bad);margin-left:6px}
   .empty{color:var(--muted);font-size:14px}
+  .prog svg{display:block;width:100%;height:auto}
+  .prog svg .bar{cursor:pointer}
+  .prog .cap{font-size:13px;color:var(--muted);margin:6px 0 10px;min-height:18px}
+  .prog .cap b{color:var(--text);font-weight:500}
+  .prog table{width:100%;border-collapse:collapse;font-size:13px}
+  .prog th{color:var(--muted);font-weight:500;text-align:right;padding:4px 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+  .prog td{text-align:right;padding:5px 0;border-top:1px solid var(--line);font-family:'JetBrains Mono',monospace}
+  .prog th:first-child,.prog td:first-child{text-align:left;font-family:inherit}
+  .prog .up{color:var(--good)} .prog .down{color:var(--bad)}
   .about summary{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:500;cursor:pointer;list-style:none}
   .about summary::-webkit-details-marker{display:none}
   .about summary::after{content:" +";color:var(--accent)}
@@ -194,7 +203,7 @@
 
   <div class="stats">
     <div class="stat"><b id="sScore">0/0</b><small>Score</small></div>
-    <div class="stat"><b id="sPct">–</b><small>Accuracy</small></div>
+    <div class="stat"><b id="sPct">–</b><small>First try</small></div>
     <div class="stat"><b id="sStreak">0</b><small>Streak</small></div>
     <div class="stat"><b id="sBest">0</b><small>Best</small></div>
   </div>
@@ -243,6 +252,13 @@
     <div class="weak" id="weakList"></div>
   </div>
 
+  <div class="card prog">
+    <h2>Progress · first try <span id="progKind" style="text-transform:none;letter-spacing:0;color:var(--accent)"></span></h2>
+    <div id="progChart"></div>
+    <div class="cap" id="progCap"></div>
+    <div id="progTable"></div>
+  </div>
+
   <details class="card about">
     <summary>How it works</summary>
     <p>Bass Note Finder trains you to connect what you hear, what you read and where it sits on the neck.</p>
@@ -255,6 +271,7 @@
     <p><b>Intervals mode</b> plays 2–4 notes from a key you choose. Name the interval between each pair (e.g. major 3rd up, perfect 4th down), then reveal the notes, their scale degrees and where they sit on the neck.</p>
     <p><b>Riffs mode</b> plays the opening notes of a tune — classical and traditional melodies, practice riffs, or riffs you add yourself in Settings — and you play it back. With 🎤 on it listens and moves on to the next tune when you get it. If you find the notes but play any out of order, it asks you to play it once more — this time in the right order.</p>
     <p><b>Changes</b> plays a chord progression (I–V–vi–IV, ii–V–I, blues and more, in any key); play the root of each chord back. <b>Reading</b> shows a note or short phrase on the stave with no sound — play what you read. Chords mode now includes 7th chords too.</p>
+    <p><b>Scoring:</b> the score and percentage at the top count only rounds you get <b>first time</b> — no wrong notes, no hint, no extra replays. The Progress card shows your first-try score day by day for the mode you’re in, and compares the last 7 days with the 7 before.</p>
     <p><b>Guitar too:</b> switch instrument in Settings (or open the app with <b>#guitar</b> on the end of its address) for a 6-string fretboard, treble-clef notation and guitar riffs. Each instrument keeps its own settings and scores.</p>
     <p><b>Tuner:</b> tap Tuner, play an open string and tune until it says “In tune”. Tap a string to hear its reference note.</p>
     <p><b>Listening:</b> tap 🎤 and the app listens through your microphone. Play the note (or the chord or interval notes in order) and it marks you right automatically and moves on.</p>
@@ -534,6 +551,8 @@
 
     <div class="field">
       <button class="small-btn" id="resetStats">Reset score and weak-spot history</button>
+      <button class="small-btn" id="resetDays">Clear daily progress</button>
+      <div class="note-help">Resetting the score keeps your daily progress chart. Clear that separately if you want a fresh start.</div>
     </div>
   </div>
 </div>
@@ -543,7 +562,7 @@
   // ---------- version ----------
   // The ONE place to bump when releasing changes. It's shown next to the title and also
   // names the offline cache (sw.js reads it from its URL), so installed copies update.
-  const APP_VERSION = 17;
+  const APP_VERSION = 18;
 
   // ---------- constants ----------
   const SHARP = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
@@ -1347,6 +1366,10 @@
     if (!current) return;
     if (ok){ stats.hit++; stats.streak++; stats.best = Math.max(stats.best, stats.streak); }
     else { stats.miss++; stats.streak = 0; }
+    // First try = got it with no wrong notes, no hint and no extra replays. This drives the score and the daily progress.
+    const first = ok && triesThisRound() === 0;
+    stats.fn = (stats.fn || 0) + 1; if (first) stats.ft = (stats.ft || 0) + 1;
+    logDay(current.type, first);
     const tries = triesThisRound() + 1;   // attempts including the right one
     // intervals: track each interval in the round; everything else: the item itself
     const keys = current.type === 'iv' ? [...new Set(intervalsOf(current).map(v => 'iv' + v.short))] : current.type === 'riff' ? ['rf' + current.id] : current.type === 'chg' ? ['cg' + current.id]
@@ -1382,9 +1405,10 @@
     el.className = 'feedback g' + g;
   }
   function renderStats(){
-    const tot = stats.hit + stats.miss;
-    $('sScore').textContent = `${stats.hit}/${tot}`;
-    $('sPct').textContent = tot ? Math.round(stats.hit/tot*100) + '%' : '–';
+    const tot = stats.fn || 0, ft = stats.ft || 0;
+    $('sScore').textContent = `${ft}/${tot}`;
+    $('sPct').textContent = tot ? Math.round(ft/tot*100) + '%' : '–';
+    renderProgress();
     $('sStreak').textContent = stats.streak;
     $('sBest').textContent = stats.best;
     // average attempts per round (a miss counts as 4); older data without tries falls back to misses
@@ -1399,6 +1423,76 @@
     const soon = Object.values(stats.srs.items).filter(e => e.box <= 1 && e.last < 3 && e.due <= R + 4).length;
     $('dueCount').textContent = S.weighted && soon ? `· ${soon} coming back soon` : '';
   }
+
+  // ---------- daily progress ----------
+  // stats.days['YYYY-MM-DD'] = { note:[rounds, firstTries], riff:[…], … } — local dates, kept for a year
+  const dayKey = d => d.toLocaleDateString('en-CA');
+  const KIND_NAMES = { note:'Notes', chord:'Chords', iv:'Intervals', riff:'Riffs', chg:'Changes', read:'Reading' };
+  function logDay(type, first){
+    const days = stats.days || (stats.days = {}), d = dayKey(new Date());
+    const e = days[d] || (days[d] = {}), r = e[type] || (e[type] = [0, 0]);
+    r[0]++; if (first) r[1]++;
+    const keys = Object.keys(days).sort();
+    if (keys.length > 366) keys.slice(0, keys.length - 366).forEach(k => delete days[k]);
+  }
+  // totals for one day (or a range of days) for the given types
+  function dayTotals(keys, types){
+    let n = 0, f = 0;
+    keys.forEach(k => { const e = (stats.days || {})[k]; if (e) types.forEach(t => { if (e[t]){ n += e[t][0]; f += e[t][1]; } }); });
+    return { n, f, pct: n ? f / n : null };
+  }
+  const lastDays = (count, offset = 0) => Array.from({ length: count }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - offset - (count - 1 - i)); return dayKey(d);
+  });
+  const pctTxt = p => p == null ? '–' : Math.round(p * 100) + '%';
+  function dayCap(k, t){
+    const d = new Date(k + 'T12:00:00');
+    const when = k === dayKey(new Date()) ? 'Today' : d.toLocaleDateString(undefined, { weekday:'short', day:'numeric', month:'short' });
+    return t.n ? `<b>${when}</b> · ${t.f} of ${t.n} first try (${pctTxt(t.pct)})${t.n < 5 ? ' · only a few rounds' : ''}`
+               : `<b>${when}</b> · no practice`;
+  }
+  function renderProgress(){
+    const types = S.kind === 'mix' || !KIND_NAMES[S.kind] ? Object.keys(KIND_NAMES) : [S.kind];
+    $('progKind').textContent = '· ' + (types.length > 1 ? 'all modes' : KIND_NAMES[S.kind]);
+    const keys = lastDays(14), today = keys[13];
+    const W = 320, H = 118, top = 14, base = 92, slot = W / 14, bw = slot - 6;
+    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="First-try percentage for each of the last 14 days">`;
+    [0.5, 1].forEach(g => { const y = base - (base - top) * g;
+      svg += `<line x1="0" x2="${W}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="1" stroke-dasharray="${g === 1 ? '' : '3 3'}"/>`
+           + `<text x="${W}" y="${y - 3}" text-anchor="end" font-size="9" fill="var(--muted)">${g * 100}%</text>`; });
+    svg += `<line x1="0" x2="${W}" y1="${base}" y2="${base}" stroke="var(--line)" stroke-width="1"/>`;
+    let latest = null;
+    keys.forEach((k, i) => {
+      const t = dayTotals([k], types), x = i * slot + 3, d = new Date(k + 'T12:00:00');
+      if (t.n){
+        latest = k;
+        const h = Math.max(2, (base - top) * t.pct), y = base - h, r = Math.min(4, bw / 2, h);
+        // rounded top, square at the baseline; days with only a few rounds are drawn fainter
+        svg += `<path class="bar" data-k="${k}" opacity="${t.n < 5 ? 0.45 : 1}" fill="var(--accent)" d="M${x},${base} V${y + r} Q${x},${y} ${x + r},${y} H${x + bw - r} Q${x + bw},${y} ${x + bw},${y + r} V${base} Z"><title>${k}: ${t.f}/${t.n}</title></path>`;
+      } else svg += `<circle cx="${x + bw / 2}" cy="${base - 3}" r="1.5" fill="var(--line)"/>`;
+      // a generous invisible hit area over the whole slot
+      svg += `<rect class="bar" data-k="${k}" x="${i * slot}" y="${top - 10}" width="${slot}" height="${base - top + 26}" fill="transparent"/>`;
+      svg += `<text x="${x + bw / 2}" y="${base + 13}" text-anchor="middle" font-size="9" fill="${k === today ? 'var(--text)' : 'var(--muted)'}">${'SMTWTFS'[d.getDay()]}</text>`;
+      if (i === 0 || d.getDate() === 1 || i === 13) svg += `<text x="${x + bw / 2}" y="${base + 24}" text-anchor="middle" font-size="8" fill="var(--muted)">${d.getDate()}</text>`;
+    });
+    svg += '</svg>';
+    $('progChart').innerHTML = svg;
+    $('progCap').innerHTML = latest ? dayCap(latest, dayTotals([latest], types)) : 'Your first-try score for each day will build up here as you practise.';
+    // this week vs last week, per mode
+    const wk = lastDays(7), prev = lastDays(7, 7);
+    const rows = Object.keys(KIND_NAMES).map(t => ({ t, a: dayTotals(wk, [t]), b: dayTotals(prev, [t]) })).filter(r => r.a.n || r.b.n);
+    if (rows.length > 1) rows.push({ t:'all', a: dayTotals(wk, Object.keys(KIND_NAMES)), b: dayTotals(prev, Object.keys(KIND_NAMES)) });
+    $('progTable').innerHTML = rows.length ? `<table><tr><th>Mode</th><th>Last 7 days</th><th>7 days before</th><th>Change</th></tr>` + rows.map(r => {
+      const ch = r.a.pct != null && r.b.pct != null ? Math.round((r.a.pct - r.b.pct) * 100) : null;
+      const chTxt = ch == null ? '–' : ch > 0 ? `<span class="up">▲ ${ch}</span>` : ch < 0 ? `<span class="down">▼ ${-ch}</span>` : '±0';
+      return `<tr><td>${r.t === 'all' ? '<b>All</b>' : KIND_NAMES[r.t]}</td><td>${pctTxt(r.a.pct)} <small style="color:var(--muted)">(${r.a.n})</small></td><td>${pctTxt(r.b.pct)} <small style="color:var(--muted)">(${r.b.n})</small></td><td>${chTxt}</td></tr>`;
+    }).join('') + '</table>' : '';
+  }
+  $('progChart').addEventListener('click', e => {
+    const b = e.target.closest('.bar'); if (!b) return;
+    const types = S.kind === 'mix' || !KIND_NAMES[S.kind] ? Object.keys(KIND_NAMES) : [S.kind];
+    $('progCap').innerHTML = dayCap(b.dataset.k, dayTotals([b.dataset.k], types));
+  });
 
   // ---------- hands-free loop ----------
   function startAuto(){ autoRunning = true; $('timer').classList.add('on'); lockScreen(true); syncButtons(); cycle(); }
@@ -1621,7 +1715,15 @@
     const b = e.target.closest('button'); if (!b) return;
     S.keyIdx = +b.dataset.v; saveSettings(current && current.type === 'iv');
   });
-  $('resetStats').addEventListener('click', () => { stats = { hit:0, miss:0, streak:0, best:0, perNote:{}, srs:{ round:0, items:{} } }; store.set(statsKey(), stats); renderStats(); $('feedback').textContent = ''; });
+  // two taps to clear, so a stray tap can't wipe weeks of history
+  let clearArmed = null;
+  $('resetDays').addEventListener('click', () => {
+    const b = $('resetDays');
+    if (!clearArmed){ b.textContent = 'Tap again to clear daily progress'; clearArmed = setTimeout(() => { clearArmed = null; b.textContent = 'Clear daily progress'; }, 3000); return; }
+    clearTimeout(clearArmed); clearArmed = null; b.textContent = 'Daily progress cleared';
+    stats.days = {}; store.set(statsKey(), stats); renderStats();
+  });
+  $('resetStats').addEventListener('click', () => { stats = { hit:0, miss:0, streak:0, best:0, perNote:{}, srs:{ round:0, items:{} }, days: stats.days || {} }; store.set(statsKey(), stats); renderStats(); $('feedback').textContent = ''; });
 
   const openSheet = o => { $('sheet').classList.toggle('open', o); $('sheetBg').classList.toggle('open', o); };
   $('openSettings').onclick = () => openSheet(true);
