@@ -271,7 +271,7 @@
     <p><b>Intervals mode</b> plays 2–4 notes from a key you choose. Name the interval between each pair (e.g. major 3rd up, perfect 4th down), then reveal the notes, their scale degrees and where they sit on the neck.</p>
     <p><b>Riffs mode</b> plays the opening notes of a tune — classical and traditional melodies, practice riffs, or riffs you add yourself in Settings — and you play it back. With 🎤 on it listens and moves on to the next tune when you get it. If you find the notes but play any out of order, it asks you to play it once more — this time in the right order.</p>
     <p><b>Changes</b> plays a chord progression (I–V–vi–IV, ii–V–I, blues and more, in any key); play the root of each chord back. <b>Reading</b> shows a note or short phrase on the stave with no sound — play what you read. Chords mode now includes 7th chords too.</p>
-    <p><b>Scoring:</b> the score and percentage at the top count only rounds you get <b>first time</b> — no wrong notes, no hint, no extra replays. The Progress card shows your first-try score day by day for the mode you’re in, and compares the last 7 days with the 7 before.</p>
+    <p><b>Scoring:</b> the score, percentage, streak and best at the top count only rounds you get <b>first time</b> — no wrong notes, no hint, no extra replays. The Progress card shows your first-try score day by day for the mode you’re in, and compares the last 7 days with the 7 before.</p>
     <p><b>Guitar too:</b> switch instrument in Settings (or open the app with <b>#guitar</b> on the end of its address) for a 6-string fretboard, treble-clef notation and guitar riffs. Each instrument keeps its own settings and scores.</p>
     <p><b>Tuner:</b> tap Tuner, play an open string and tune until it says “In tune”. Tap a string to hear its reference note.</p>
     <p><b>Listening:</b> tap 🎤 and the app listens through your microphone. Play the note (or the chord or interval notes in order) and it marks you right automatically and moves on.</p>
@@ -562,7 +562,7 @@
   // ---------- version ----------
   // The ONE place to bump when releasing changes. It's shown next to the title and also
   // names the offline cache (sw.js reads it from its URL), so installed copies update.
-  const APP_VERSION = 18;
+  const APP_VERSION = 19;
 
   // ---------- constants ----------
   const SHARP = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
@@ -1369,6 +1369,8 @@
     // First try = got it with no wrong notes, no hint and no extra replays. This drives the score and the daily progress.
     const first = ok && triesThisRound() === 0;
     stats.fn = (stats.fn || 0) + 1; if (first) stats.ft = (stats.ft || 0) + 1;
+    // streak / best count first tries in a row (new fields, so the old, more forgiving best doesn't carry over)
+    stats.fs = first ? (stats.fs || 0) + 1 : 0; stats.fb = Math.max(stats.fb || 0, stats.fs);
     logDay(current.type, first);
     const tries = triesThisRound() + 1;   // attempts including the right one
     // intervals: track each interval in the round; everything else: the item itself
@@ -1409,8 +1411,8 @@
     $('sScore').textContent = `${ft}/${tot}`;
     $('sPct').textContent = tot ? Math.round(ft/tot*100) + '%' : '–';
     renderProgress();
-    $('sStreak').textContent = stats.streak;
-    $('sBest').textContent = stats.best;
+    $('sStreak').textContent = stats.fs || 0;
+    $('sBest').textContent = stats.fb || 0;
     // average attempts per round (a miss counts as 4); older data without tries falls back to misses
     const avg = r => r.n ? r.t / r.n : 1 + r.m*3 / Math.max(1, r.h + r.m);
     const weak = Object.entries(stats.perNote)
