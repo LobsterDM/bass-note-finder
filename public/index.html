@@ -253,7 +253,7 @@
       <li><b>Check.</b> Tap Reveal to see the name and every place it lives on the fretboard, then mark whether you got it.</li>
     </ol>
     <p><b>Intervals mode</b> plays 2–4 notes from a key you choose. Name the interval between each pair (e.g. major 3rd up, perfect 4th down), then reveal the notes, their scale degrees and where they sit on the neck.</p>
-    <p><b>Riffs mode</b> plays the opening notes of a tune — classical and traditional melodies, practice riffs, or riffs you add yourself in Settings — and you play it back. With 🎤 on it listens and moves on to the next tune when you get it.</p>
+    <p><b>Riffs mode</b> plays the opening notes of a tune — classical and traditional melodies, practice riffs, or riffs you add yourself in Settings — and you play it back. With 🎤 on it listens and moves on to the next tune when you get it. If you find the notes but play any out of order, it asks you to play it once more — this time in the right order.</p>
     <p><b>Changes</b> plays a chord progression (I–V–vi–IV, ii–V–I, blues and more, in any key); play the root of each chord back. <b>Reading</b> shows a note or short phrase on the stave with no sound — play what you read. Chords mode now includes 7th chords too.</p>
     <p><b>Guitar too:</b> switch instrument in Settings (or open the app with <b>#guitar</b> on the end of its address) for a 6-string fretboard, treble-clef notation and guitar riffs. Each instrument keeps its own settings and scores.</p>
     <p><b>Tuner:</b> tap Tuner, play an open string and tune until it says “In tune”. Tap a string to hear its reference note.</p>
@@ -543,7 +543,7 @@
   // ---------- version ----------
   // The ONE place to bump when releasing changes. It's shown next to the title and also
   // names the offline cache (sw.js reads it from its URL), so installed copies update.
-  const APP_VERSION = 16;
+  const APP_VERSION = 17;
 
   // ---------- constants ----------
   const SHARP = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
@@ -1665,7 +1665,7 @@
   }
 
   let mic = null, autoNext = null;
-  const L = { idx:0, solved:false, wrong:0, lastFired:null, hist:[], silent:0, stable:null,
+  const L = { idx:0, solved:false, wrong:0, slips:0, strict:false, lastFired:null, hist:[], silent:0, stable:null,
               sched:[], lat:300, probe:null, lastRms:0, levels:[], slevels:[], armed:false };
   // lat = measured delay (ms) from the app starting a tone to it reaching the mic (speaker + mic latency)
 
@@ -1714,7 +1714,7 @@
 
   function resetListen(){
     clearTimeout(autoNext);
-    Object.assign(L, { idx:0, solved:false, wrong:0, lastFired:L.stable, log:[] });
+    Object.assign(L, { idx:0, solved:false, wrong:0, slips:0, strict:false, lastFired:L.stable, log:[] });
     $('heardLog').innerHTML = '';
     $('stage').classList.remove('correct');
     renderSteps();
@@ -1815,14 +1815,32 @@
     }
     if (good){
       L.idx += matches(m, tg[L.idx]) ? 1 : 2; renderSteps();
-      if (L.idx >= tg.length){ setHeard(`✓ ${name} — correct!`, 'ok'); solved(); }
+      if (L.idx >= tg.length){
+        if (current.type === 'riff' && L.slips > 0 && !L.strict){ inOrderRound(name); return; }
+        setHeard(`✓ ${name} — correct!`, 'ok'); solved();
+      }
       else setHeard(`✓ ${name} — now the next note`, 'ok');
     } else if (L.idx > 0 && matches(m, tg[L.idx - 1])){
       setHeard(`✓ ${name} — now the next note`, 'ok');   // previous note still ringing
     } else {
-      L.wrong++;
-      setHeard(`${name} — not quite, try again`, 'bad');
+      L.wrong++; L.slips++;
+      if (L.strict){
+        // Second time through a riff: a wrong or out-of-order note sends you back to the start
+        L.idx = matches(m, tg[0]) ? 1 : 0; renderSteps();
+        setHeard(`${name} — out of order, start again from the first note`, 'bad');
+      } else setHeard(`${name} — not quite, try again`, 'bad');
     }
+  }
+  // Riffs: the first time through, stray or out-of-order notes are let go so you can find the notes.
+  // If there were any, you then play it once more and this time it only counts in the right order.
+  function inOrderRound(name){
+    clearTimeout(autoNext);
+    Object.assign(L, { idx:0, strict:true, slips:0 });
+    L.log.push('<b>— again, in order —</b>');
+    $('heardLog').innerHTML = 'I heard: ' + L.log.join(' · ');
+    renderSteps();
+    setHeard(`✓ ${name} — you found all the notes!`, 'ok');
+    $('hint').textContent = 'Got all the notes, but not quite in order. Now play it again — this time the notes must be in the right order.';
   }
 
   function solved(){
